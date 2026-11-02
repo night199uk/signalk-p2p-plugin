@@ -1,0 +1,23 @@
+[Unit]
+Description=Signal K P2P peer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=signalk-p2p
+Group=signalk-p2p
+WorkingDirectory=/var/lib/signalk-p2p
+ExecStart=/opt/signalk-p2p/node_modules/.bin/signalk-p2p-peer --config /etc/signalk-p2p/peer.json
+Restart=always
+RestartSec=5
+# Remove DEBUG in production; keep it while validating peer connections.
+Environment=DEBUG=1
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/signalk-p2p
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

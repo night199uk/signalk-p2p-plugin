@@ -1,0 +1,107 @@
+{
+  "name": "signalk-p2p-plugin",
+  "version": "0.1.0",
+  "description": "Private and public peer-to-peer mesh networks for Signal K vessels.",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-category-ais",
+    "signalk-category-utility",
+    "signal-k",
+    "p2p",
+    "mesh",
+    "hyperswarm",
+    "hypercore",
+    "vessel-data"
+  ],
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Chris Roberts",
+    "email": "chris@problem-child.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/night199uk/signalk-p2p-plugin.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "signalk-p2p-peer": "dist/peer/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "docs/plans",
+    "deploy",
+    "icon.svg",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -w",
+    "prepack": "npm run build",
+    "test": "vitest run",
+    "peer": "tsx src/peer/cli.ts",
+    "peer:start": "node dist/peer/cli.js",
+    "spike": "tsx spike/run.ts",
+    "spike:swarm": "tsx spike/swarm.ts",
+    "smoke:client": "tsx scripts/smoke-client.ts",
+    "smoke:plugin": "tsx scripts/smoke-plugin.ts",
+    "smoke:election": "tsx scripts/smoke-election.ts",
+    "smoke:group": "tsx scripts/smoke-group.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint src test spike scripts"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "@hyperswarm/secret-stream": "^6.9.2",
+    "@signalk/server-api": "^2.34.0",
+    "cborg": "^6.1.4",
+    "compact-encoding": "^3.5.2",
+    "hyperswarm": "^4.17.2",
+    "protomux": "^3.13.0",
+    "sodium-universal": "^5.0.1"
+  },
+  "devDependencies": {
+    "@hyperswarm/testnet": "^3.1.4",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "corestore": "^7.16.1",
+    "express": "^5.1.0",
+    "oxlint": "^1.88.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "signalk": {
+    "displayName": "Signal K P2P",
+    "appIcon": "icon.svg",
+    "appstore": {
+      "displayName": "Signal K P2P",
+      "categories": [
+        "ais",
+        "utility"
+      ],
+      "author": "Chris Roberts",
+      "description": "Private and public peer-to-peer mesh networks for sharing vessel data in real time."
+    }
+  },
+  "homepage": "https://github.com/night199uk/signalk-p2p-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/night199uk/signalk-p2p-plugin/issues"
+  }
+}

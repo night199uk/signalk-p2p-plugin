@@ -1,0 +1,9 @@
+{
+  "dataDir": "/var/lib/signalk-p2p",
+  "topic": "signalk-p2p/all-vessels/v1",
+  "batchIntervalMs": 2000,
+  "maxBatchBytes": 65536,
+  "historyBatches": 10,
+  "port": 49737,
+  "groupInvites": []
+}
