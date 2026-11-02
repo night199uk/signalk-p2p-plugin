@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-11-02
+
+Fix the Windows path assertion in the peer config test; no runtime changes.
+
 ## 0.1.0 — 2026-11-02
 
 First public release. Validated over WAN through a VPS peer; not yet validated
