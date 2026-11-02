@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PEER_CONFIG, loadPeerConfig } from "../src/peer/config.js";
 
@@ -10,15 +11,16 @@ describe("peer config", () => {
   });
 
   it("applies CLI-style overrides", () => {
+    const dataDir = "/tmp/skp2p-peer-test";
     const config = loadPeerConfig({
-      dataDir: "/tmp/skp2p-peer-test",
+      dataDir,
       topic: "signalk-p2p/test/v1",
       batchIntervalMs: 500,
       historyBatches: 3,
       port: 49737,
     });
 
-    expect(config.dataDir).toBe("/tmp/skp2p-peer-test");
+    expect(config.dataDir).toBe(resolve(dataDir));
     expect(config.topic).toBe("signalk-p2p/test/v1");
     expect(config.batchIntervalMs).toBe(500);
     expect(config.historyBatches).toBe(3);
