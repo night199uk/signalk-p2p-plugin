@@ -121,10 +121,12 @@ git tag -a vX.Y.Z -m "vX.Y.Z"
 git push origin vX.Y.Z
 ```
 
-Add an npm token with publish access as the repository secret `NPM_TOKEN`. For
-the first publish you can run the workflow manually from **Actions → Publish to
-npm → Run workflow** with the existing tag (`v0.4.0`). Once the package exists,
-npm trusted publishing can replace the token later.
+Publishing uses npm **Trusted Publishing** through GitHub OIDC; there is no
+long-lived npm token in the repository. Configure the trusted publisher on npm
+for this repository and `.github/workflows/publish.yml` (and the `npm`
+environment if you use one). For the first publish you can run the workflow
+manually from **Actions → Publish to npm → Run workflow** with the existing tag
+(`v0.4.0`).
 
 ## Development
 

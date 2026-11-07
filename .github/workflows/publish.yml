@@ -3,10 +3,11 @@ name: Publish to npm
 # Push a version tag to publish:
 #   git tag -a v0.4.0 -m "v0.4.0" && git push origin v0.4.0
 #
-# Requires the repository secret NPM_TOKEN: an npm automation/granular token
-# with publish access to signalk-p2p-plugin. The workflow also creates the
-# GitHub release. For the first publish you can run it manually with an
-# existing tag from the Actions tab.
+# Publishing uses npm Trusted Publishing (GitHub OIDC); no long-lived npm token
+# is stored in the repository. Configure the trusted publisher on npm for this
+# repository and this workflow file. The workflow also creates the GitHub
+# release. For the first publish you can run it manually with an existing tag
+# from the Actions tab.
 
 on:
   push:
@@ -55,15 +56,6 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
-      - name: Require npm token
-        env:
-          TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::error::NPM_TOKEN is not set. Add an npm publish token as a repository secret."
-            exit 1
-          fi
-
       - name: Install
         run: npm ci --no-audit --no-fund
 
@@ -89,8 +81,6 @@ jobs:
           fi
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
 
       - name: Create GitHub release
