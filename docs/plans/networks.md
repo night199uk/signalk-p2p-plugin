@@ -330,7 +330,9 @@ signalk-p2p://join/<base64url>{
 }>
 ```
 
-- Anyone holding it can join until `expiresAt` (default 24 hours).
+- Anyone holding it can join until `expiresAt` (default 24 hours). Short codes
+  are served by any online group member or relay; the admin need not stay online
+  after the invite is distributed.
 - Optionally single-use: the admin records the nonce; a second `join` with the
   same nonce is rejected.
 - It is a bearer token: treat it as a secret. The UI should say so.

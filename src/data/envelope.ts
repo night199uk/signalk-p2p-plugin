@@ -14,6 +14,7 @@ const enum WireRecordType {
   GroupJoin = 9,
   GroupRosterRequest = 10,
   Policy = 11,
+  GroupInvite = 12,
 }
 
 const WIRE_TYPES: Record<RecordType, WireRecordType> = {
@@ -25,6 +26,7 @@ const WIRE_TYPES: Record<RecordType, WireRecordType> = {
   claim: WireRecordType.Claim,
   capability: WireRecordType.Capability,
   policy: WireRecordType.Policy,
+  "group-invite": WireRecordType.GroupInvite,
   "group-roster": WireRecordType.GroupRoster,
   "group-join": WireRecordType.GroupJoin,
   "group-roster-request": WireRecordType.GroupRosterRequest,
@@ -39,6 +41,7 @@ const WIRE_TYPE_NAMES: Record<number, RecordType> = {
   [WireRecordType.Claim]: "claim",
   [WireRecordType.Capability]: "capability",
   [WireRecordType.Policy]: "policy",
+  [WireRecordType.GroupInvite]: "group-invite",
   [WireRecordType.GroupRoster]: "group-roster",
   [WireRecordType.GroupJoin]: "group-join",
   [WireRecordType.GroupRosterRequest]: "group-roster-request",

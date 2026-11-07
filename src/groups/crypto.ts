@@ -10,6 +10,10 @@ function digest(...parts: string[]): Buffer {
   return createHash("sha256").update(parts.join("\u0000")).digest();
 }
 
+export function groupInviteTopic(code: string): Buffer {
+  return digest("signalk-p2p/group/invite", code);
+}
+
 export function groupRosterTopic(groupId: Buffer): Buffer {
   return digest("signalk-p2p/group/roster", groupId.toString("hex"));
 }

@@ -16,8 +16,9 @@ joined by default, plus any number of private, encrypted groups.
   destination, anchor, propulsion and systems, per network.
 - Join the global `all-vessels` network automatically, but transmit only after
   opting in (receive-only by default; four consent modes).
-- Create private groups with encrypted data, invite links, roles, admin-approved
-  MMSIs, member removal and key rotation.
+- Create private groups with encrypted data, short per-invite codes, roles,
+  admin-approved MMSIs, member removal and key rotation. Codes are served by any
+  online group member or relay; the admin only needs to approve the join.
 - Carry other vessels you hear over AIS into a shared map, with four AIS modes and
   nearest-target caps; AIS observations are never re-published.
 - Signed messages, claim/attestation authorization, and one authorized writer per
@@ -54,6 +55,16 @@ receive-only/private by default. Identity, position, navigation and depth are
 pre-selected when you opt in; environment, tanks, destination, anchor,
 propulsion and systems stay off until enabled. See
 [`shared-data.md`](docs/plans/shared-data.md).
+
+### Group invites
+
+The group **Invite** button creates a 10-character code such as `ABCDE-FGHJK`.
+The full signed invite is distributed to the group and served by any online
+member or relay, so the admin does not need to stay online after creating the
+code. At least one group member or relay must be online to serve it, and an
+admin must still approve the join. The code expires in 24 hours and is consumed
+when a join is approved. Long signed invite tokens from earlier versions remain
+accepted.
 
 ## Standalone peer
 

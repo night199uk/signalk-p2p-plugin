@@ -86,6 +86,13 @@ describe("GroupManager", () => {
     expect(local.publishRateHz).toBe(1.5);
   });
 
+  it("creates a short invite code", async () => {
+    const owner = await manager(ownerSelfId);
+    const group = await owner.manager.createGroup("Short Code");
+    const code = await owner.manager.createInviteCode(group.id);
+    expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{5}-[0-9A-HJKMNP-TV-Z]{5}$/);
+  });
+
   it("defaults invite expiry to 24 hours", async () => {
     const owner = await manager(ownerSelfId);
     const group = await owner.manager.createGroup("Invite Expiry");

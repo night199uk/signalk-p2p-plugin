@@ -83,7 +83,9 @@ export interface GroupState {
 }
 
 export interface GroupInvite {
-  v: 1;
+  v: 1 | 2;
+  /** Short lookup code for v2 invites. */
+  code?: string;
   groupId: string;
   name: string;
   epoch: number;

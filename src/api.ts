@@ -173,7 +173,9 @@ export function registerRoutes(
   });
 
   router.post("/groups/invite", (req: Request, res: Response) => {
-    sendGroup(res, control.createInvite(req.body ?? {}));
+    void control
+      .createInvite(req.body ?? {})
+      .then((result) => sendGroup(res, result));
   });
 
   router.post("/groups/join", (req: Request, res: Response) => {

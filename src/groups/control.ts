@@ -20,7 +20,7 @@ export interface GroupControl {
     groupId?: unknown;
     role?: unknown;
     expiresInSeconds?: unknown;
-  }): GroupResult;
+  }): Promise<GroupResult>;
   joinGroup(input: { token?: unknown; mmsi?: unknown }): Promise<GroupResult>;
   groupRequests(): PendingRequest[];
   approveMember(input: {
@@ -120,13 +120,13 @@ export function createGroupControl(
       }
     },
 
-    createInvite: (input) => {
+    createInvite: async (input) => {
       try {
         const groupId = stringField(input.groupId, "groupId");
         const role = roleField(input.role) ?? "member";
         return {
           ok: true,
-          token: requireManager().createInvite(
+          token: await requireManager().createInviteCode(
             groupId,
             role,
             numberField(input.expiresInSeconds),

@@ -115,6 +115,7 @@ export type RecordType =
   | "claim"
   | "capability"
   | "policy"
+  | "group-invite"
   | "group-roster"
   | "group-join"
   | "group-roster-request";

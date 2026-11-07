@@ -330,6 +330,8 @@ context to be dropped. Observations dedupe by MMSI and timestamp.
 - An invite is a **bearer token** (`skp2p://join/...`): whoever holds it can
   request to join until it expires. It is not a proof of MMSI ownership.
 - Default expiry: 24 hours. Optional single-use via a nonce recorded by the roster.
+  Short codes are capabilities served by group members/relays; the signed invite
+  remains verifiable without trusting the member that served it.
 - The admin's approval of the join request is the actual admission; the invite
   only gets the request in the door.
 - Treat invites as secrets; the UI says so and offers revoke/expire controls.

@@ -10,6 +10,7 @@ import {
   deriveDataKey,
   encryptRecord,
   groupDataTopic,
+  groupInviteTopic,
   groupRosterTopic,
   openEpochKey,
   sealEpochKey,
@@ -41,6 +42,12 @@ import {
   type SignedRoster,
   type WrappedKey,
 } from "./types.js";
+import {
+  formatInviteCode,
+  generateInviteCode,
+  looksLikeInviteCode,
+  normalizeInviteCode,
+} from "./invite-code.js";
 
 export interface GroupManagerOptions {
   dataDir: string;
@@ -59,10 +66,24 @@ interface Runtime {
   requestTimer?: ReturnType<typeof setInterval>;
 }
 
+interface PersistedInvite {
+  code: string;
+  token: string;
+  groupId: string;
+  nonce: string;
+  expiresAt: number;
+}
+
+interface ActiveInvite extends PersistedInvite {
+  client?: LiveClient;
+  expiryTimer?: ReturnType<typeof setInterval>;
+}
+
 interface Persisted {
   groups: GroupState[];
   requests: PendingRequest[];
   proposals?: GroupProposal[];
+  invites?: PersistedInvite[];
 }
 
 const ROLES: GroupRole[] = ["owner", "admin", "member", "viewer"];
@@ -80,6 +101,7 @@ export class GroupManager {
   private readonly runtimes = new Map<string, Runtime>();
   private readonly pending: PendingRequest[] = [];
   private readonly proposals = new Map<string, Map<string, GroupProposal>>();
+  private readonly invites = new Map<string, ActiveInvite>();
   private readonly identity: Identity;
   private readonly selfId: string;
   private readonly log: LiveLogger | undefined;
@@ -118,6 +140,26 @@ export class GroupManager {
           this.storeProposal(proposal.hash, proposal.signed);
         }
       }
+      if (Array.isArray(parsed.invites)) {
+        for (const entry of parsed.invites) {
+          if (
+            entry &&
+            typeof entry.code === "string" &&
+            typeof entry.token === "string" &&
+            typeof entry.groupId === "string" &&
+            typeof entry.nonce === "string" &&
+            typeof entry.expiresAt === "number"
+          ) {
+            this.invites.set(normalizeInviteCode(entry.code), {
+              code: normalizeInviteCode(entry.code),
+              token: entry.token,
+              groupId: entry.groupId,
+              nonce: entry.nonce,
+              expiresAt: entry.expiresAt,
+            });
+          }
+        }
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         this.log?.error(`groups: load failed: ${String(error)}`);
@@ -129,11 +171,17 @@ export class GroupManager {
     for (const state of [...this.groups.values()]) {
       await this.startGroup(state);
     }
+    for (const entry of [...this.invites.values()]) {
+      await this.startInvite(entry);
+    }
   }
 
   async stop(): Promise<void> {
     for (const groupId of [...this.runtimes.keys()]) {
       await this.stopGroup(groupId);
+    }
+    for (const code of [...this.invites.keys()]) {
+      await this.stopInvite(code, false);
     }
   }
 
@@ -222,12 +270,71 @@ export class GroupManager {
     ).toString("base64url");
   }
 
+  /**
+   * Create a short, per-invite code. The full signed invite is distributed to
+   * the group and served by any online member or relay, so the admin does not
+   * need to stay online after the record is distributed.
+   */
+  async createInviteCode(
+    groupId: string,
+    role: GroupRole = "member",
+    expiresInSeconds = 24 * 3600,
+  ): Promise<string> {
+    const state = this.requireGroup(groupId);
+    if (!this.isAdmin(state)) {
+      throw new Error("only an owner or admin can invite");
+    }
+    if (!this.isRole(role)) throw new Error("invalid role");
+    const code = generateInviteCode();
+    const invite: Omit<GroupInvite, "signature"> = {
+      v: 2,
+      code,
+      groupId,
+      name: state.roster.name,
+      epoch: state.roster.epoch,
+      epochKey: state.epochKey,
+      rosterTopic: state.rosterTopic,
+      adminKey: this.identity.publicKeyRaw.toString("hex"),
+      role,
+      expiresAt: this.now() + Math.max(60, expiresInSeconds),
+      nonce: randomBytes(16).toString("hex"),
+      roster: {
+        roster: structuredClone(state.roster),
+        approvals: structuredClone(state.approvals),
+      },
+    };
+    const token = Buffer.from(
+      JSON.stringify(signInvite(invite, this.identity)),
+    ).toString("base64url");
+    const entry: ActiveInvite = {
+      code,
+      token,
+      groupId,
+      nonce: invite.nonce,
+      expiresAt: invite.expiresAt,
+    };
+    this.invites.set(code, entry);
+    await this.save();
+    this.broadcastInvite({ kind: "record", token }, groupId);
+    if (this.autoStart) await this.startInvite(entry);
+    return formatInviteCode(code);
+  }
+
   async join(token: string, mmsi?: string): Promise<GroupInfo> {
+    let inviteToken = token.trim();
+    if (looksLikeInviteCode(inviteToken)) {
+      inviteToken = await this.fetchInvite(normalizeInviteCode(inviteToken));
+    }
     const invite = JSON.parse(
-      Buffer.from(token, "base64url").toString("utf8"),
+      Buffer.from(inviteToken, "base64url").toString("utf8"),
     ) as GroupInvite;
     if (!verifyInvite(invite)) throw new Error("invalid invite signature");
-    if (invite.v !== 1) throw new Error("unsupported invite version");
+    if (invite.v !== 1 && invite.v !== 2) {
+      throw new Error("unsupported invite version");
+    }
+    if (invite.v === 2 && !invite.code) {
+      throw new Error("invalid invite code");
+    }
     if (invite.expiresAt <= this.now()) throw new Error("invite expired");
     if (invite.groupId !== invite.roster.roster.groupId) {
       throw new Error("invite group mismatch");
@@ -339,6 +446,11 @@ export class GroupManager {
       request.inviteNonce,
     ].slice(-1000);
     this.pending.splice(this.pending.indexOf(pending), 1);
+    const usedInvite = [...this.invites.values()].find(
+      (invite) =>
+        invite.groupId === groupId && invite.nonce === request.inviteNonce,
+    );
+    if (usedInvite) await this.stopInvite(usedInvite.code, true);
     await this.propose(state, candidate);
     return this.info(state);
   }
@@ -650,6 +762,14 @@ export class GroupManager {
       );
     });
     await control.start();
+    control.enqueue(
+      encodeEnvelope(
+        "group-invite",
+        Buffer.from(
+          JSON.stringify({ kind: "sync", groupId: state.roster.groupId }),
+        ),
+      ),
+    );
     const data = this.createDataClient(state);
     await data.start();
     this.requestRoster(state);
@@ -709,6 +829,191 @@ export class GroupManager {
     runtime.data = data;
   }
 
+  private broadcastInvite(
+    payload: Record<string, unknown>,
+    groupId?: string,
+  ): void {
+    const gid =
+      groupId ??
+      (typeof payload.groupId === "string" ? payload.groupId : undefined);
+    if (!gid) return;
+    this.runtimes
+      .get(gid)
+      ?.control?.enqueue(
+        encodeEnvelope(
+          "group-invite",
+          Buffer.from(JSON.stringify({ ...payload, groupId: gid })),
+        ),
+      );
+  }
+
+  private async startInvite(entry: ActiveInvite): Promise<void> {
+    if (entry.expiresAt <= this.now()) {
+      await this.stopInvite(entry.code, false);
+      return;
+    }
+    const existing = this.invites.get(entry.code);
+    if (!existing || existing.client) return;
+    const group = this.groups.get(entry.groupId);
+    if (!group) return;
+    let invite: GroupInvite;
+    try {
+      invite = JSON.parse(
+        Buffer.from(entry.token, "base64url").toString("utf8"),
+      ) as GroupInvite;
+    } catch {
+      return;
+    }
+    if (
+      invite.v !== 2 ||
+      !invite.code ||
+      normalizeInviteCode(invite.code) !== entry.code ||
+      invite.groupId !== entry.groupId ||
+      invite.expiresAt <= this.now() ||
+      !verifyInvite(invite) ||
+      !group.roster.adminKeys.includes(invite.adminKey)
+    ) {
+      return;
+    }
+
+    const client = new LiveClient({
+      identity: this.identity,
+      selfId: this.selfId,
+      topic: groupInviteTopic(entry.code),
+      batchIntervalMs: 500,
+      log: this.log,
+    });
+    client.onMessage((message) => {
+      for (const record of message.records) {
+        try {
+          const envelope = decodeEnvelope(record);
+          if (envelope.type !== "group-invite") continue;
+          const request = JSON.parse(envelope.payload.toString("utf8")) as {
+            kind?: string;
+            code?: string;
+          };
+          if (request.kind !== "request") continue;
+          if (
+            request.code &&
+            normalizeInviteCode(request.code) !== entry.code
+          ) {
+            continue;
+          }
+          client.enqueue(
+            encodeEnvelope(
+              "group-invite",
+              Buffer.from(
+                JSON.stringify({ kind: "offer", token: entry.token }),
+              ),
+            ),
+          );
+        } catch {
+          // ignore malformed requests
+        }
+      }
+    });
+    await client.start();
+    existing.client = client;
+    const remaining = Math.max(1000, (entry.expiresAt - this.now()) * 1000);
+    existing.expiryTimer = setInterval(() => {
+      void this.stopInvite(entry.code, false);
+    }, remaining);
+    existing.expiryTimer.unref?.();
+  }
+
+  private async stopInvite(code: string, broadcast: boolean): Promise<void> {
+    const normalized = normalizeInviteCode(code);
+    const entry = this.invites.get(normalized);
+    if (!entry) return;
+    if (entry.expiryTimer) clearInterval(entry.expiryTimer);
+    await entry.client?.stop();
+    this.invites.delete(normalized);
+    await this.save();
+    if (broadcast) {
+      this.broadcastInvite({ kind: "revoke", code: normalized }, entry.groupId);
+    }
+  }
+
+  private async fetchInvite(code: string): Promise<string> {
+    const client = new LiveClient({
+      identity: this.identity,
+      selfId: this.selfId,
+      topic: groupInviteTopic(code),
+      batchIntervalMs: 500,
+      log: this.log,
+    });
+    return new Promise<string>((resolve, reject) => {
+      let settled = false;
+      let retry: ReturnType<typeof setInterval> | undefined;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const finish = (error?: Error, token?: string): void => {
+        if (settled) return;
+        settled = true;
+        if (retry) clearInterval(retry);
+        if (timeout) clearTimeout(timeout);
+        void client.stop();
+        if (error) reject(error);
+        else resolve(token as string);
+      };
+      const request = (): void => {
+        client.enqueue(
+          encodeEnvelope(
+            "group-invite",
+            Buffer.from(JSON.stringify({ kind: "request", code })),
+          ),
+        );
+      };
+      timeout = setTimeout(() => {
+        finish(
+          new Error(
+            "invite code not found; a group member or relay must be online",
+          ),
+        );
+      }, 30_000);
+      client.onMessage((message) => {
+        for (const record of message.records) {
+          try {
+            const envelope = decodeEnvelope(record);
+            if (envelope.type !== "group-invite") continue;
+            const offer = JSON.parse(envelope.payload.toString("utf8")) as {
+              kind?: string;
+              token?: string;
+            };
+            if (offer.kind !== "offer" || typeof offer.token !== "string") {
+              continue;
+            }
+            const invite = JSON.parse(
+              Buffer.from(offer.token, "base64url").toString("utf8"),
+            ) as GroupInvite;
+            if (
+              invite.v !== 2 ||
+              !invite.code ||
+              normalizeInviteCode(invite.code) !== code ||
+              invite.expiresAt <= this.now() ||
+              !verifyInvite(invite)
+            ) {
+              continue;
+            }
+            finish(undefined, offer.token);
+            return;
+          } catch {
+            // ignore malformed offers
+          }
+        }
+      });
+      client
+        .start()
+        .then(() => {
+          request();
+          retry = setInterval(request, 5000);
+          retry.unref?.();
+        })
+        .catch((error) => {
+          finish(error instanceof Error ? error : new Error(String(error)));
+        });
+    });
+  }
+
   private async handleControl(
     state: GroupState,
     message: LiveMessage,
@@ -721,6 +1026,76 @@ export class GroupManager {
         continue;
       }
       try {
+        if (envelope.type === "group-invite") {
+          const payload = JSON.parse(envelope.payload.toString("utf8")) as {
+            kind?: string;
+            groupId?: string;
+            token?: string;
+            code?: string;
+          };
+          if (payload.groupId !== state.roster.groupId) continue;
+          if (payload.kind === "record") {
+            if (typeof payload.token !== "string") continue;
+            let invite: GroupInvite;
+            try {
+              invite = JSON.parse(
+                Buffer.from(payload.token, "base64url").toString("utf8"),
+              ) as GroupInvite;
+            } catch {
+              continue;
+            }
+            if (
+              invite.v !== 2 ||
+              !invite.code ||
+              invite.groupId !== state.roster.groupId ||
+              invite.expiresAt <= this.now() ||
+              !verifyInvite(invite) ||
+              !state.roster.adminKeys.includes(invite.adminKey)
+            ) {
+              continue;
+            }
+            const code = normalizeInviteCode(invite.code);
+            const existing = this.invites.get(code);
+            const entry: ActiveInvite = {
+              code,
+              token: payload.token,
+              groupId: invite.groupId,
+              nonce: invite.nonce,
+              expiresAt: invite.expiresAt,
+              client: existing?.client,
+              expiryTimer: existing?.expiryTimer,
+            };
+            this.invites.set(code, entry);
+            await this.save();
+            if (this.autoStart && !entry.client) {
+              await this.startInvite(entry);
+            }
+          } else if (payload.kind === "sync") {
+            for (const entry of this.invites.values()) {
+              if (
+                entry.groupId !== state.roster.groupId ||
+                entry.expiresAt <= this.now()
+              ) {
+                continue;
+              }
+              this.broadcastInvite(
+                { kind: "record", token: entry.token },
+                entry.groupId,
+              );
+            }
+          } else if (payload.kind === "revoke") {
+            if (
+              typeof payload.code !== "string" ||
+              !state.roster.adminKeys.includes(
+                message.sourceKey.toString("hex"),
+              )
+            ) {
+              continue;
+            }
+            await this.stopInvite(normalizeInviteCode(payload.code), false);
+          }
+          continue;
+        }
         if (envelope.type === "group-roster-request") {
           const request = JSON.parse(envelope.payload.toString("utf8")) as {
             groupId?: string;
@@ -906,6 +1281,13 @@ export class GroupManager {
         groups: [...this.groups.values()],
         requests: this.pending,
         proposals,
+        invites: [...this.invites.values()].map((entry) => ({
+          code: entry.code,
+          token: entry.token,
+          groupId: entry.groupId,
+          nonce: entry.nonce,
+          expiresAt: entry.expiresAt,
+        })),
       },
       null,
       2,

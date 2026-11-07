@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0 — 2026-11-06
+
+- Replace long, self-contained group invites with 10-character per-invite codes.
+  The signed invite is distributed over the group control channel and served by
+  any online group member or relay, so the admin need not stay online after the
+  code is distributed. Codes expire in 24 hours, are single-use at approval, and
+  are revoked from members after use. Long signed tokens remain accepted.
+- Add invite record sync/revoke handling and unit coverage for the short-code
+  format and normalization.
+
 ## 0.4.2 — 2026-11-06
 
 - Reduce main-thread load: subscribe to non-navigation self values with a 5 s
