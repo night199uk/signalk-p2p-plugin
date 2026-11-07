@@ -194,7 +194,7 @@ export class GroupManager {
   createInvite(
     groupId: string,
     role: GroupRole = "member",
-    expiresInSeconds = 7 * 24 * 3600,
+    expiresInSeconds = 24 * 3600,
   ): string {
     const state = this.requireGroup(groupId);
     if (!this.isAdmin(state)) {

@@ -330,7 +330,7 @@ signalk-p2p://join/<base64url>{
 }>
 ```
 
-- Anyone holding it can join until `expiresAt` (default 7 days).
+- Anyone holding it can join until `expiresAt` (default 24 hours).
 - Optionally single-use: the admin records the nonce; a second `join` with the
   same nonce is rejected.
 - It is a bearer token: treat it as a secret. The UI should say so.

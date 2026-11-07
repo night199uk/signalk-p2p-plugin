@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-11-06
+
+- Move **Invite** next to each group and create a member invite token with no
+  role/expiry prompts, defaulting to a 24-hour expiry. Join with token no longer asks for an MMSI; publish and
+  receive settings are chosen by the member after joining.
+
 ## 0.4.0 — 2026-11-06
 
 - Add a signed, versioned network policy for sharding, election windows, public

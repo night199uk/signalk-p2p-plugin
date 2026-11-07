@@ -86,6 +86,16 @@ describe("GroupManager", () => {
     expect(local.publishRateHz).toBe(1.5);
   });
 
+  it("defaults invite expiry to 24 hours", async () => {
+    const owner = await manager(ownerSelfId);
+    const group = await owner.manager.createGroup("Invite Expiry");
+    const token = owner.manager.createInvite(group.id);
+    const invite = JSON.parse(
+      Buffer.from(token, "base64url").toString("utf8"),
+    ) as { expiresAt: number };
+    expect(invite.expiresAt - 1000).toBe(24 * 3600);
+  });
+
   it("creates a group, admits a member, and rekeys on removal", async () => {
     const owner = await manager(ownerSelfId);
     const joiner = await manager(joinerSelfId);
