@@ -391,6 +391,9 @@
           root.appendChild(
             identityRow("Status", network.enabled ? "enabled" : "disabled"),
           );
+        }
+        root.appendChild(identityRow("Peers", status.peers));
+        if (network) {
           var consentRow = document.createElement("div");
           consentRow.className = "row";
           consentRow.appendChild(text("code", "Sharing"));
@@ -413,7 +416,6 @@
           consentRow.appendChild(consent);
           root.appendChild(consentRow);
         }
-        root.appendChild(identityRow("Peers", status.peers));
 
         var ais = sharing.ais || {
           public: false,
@@ -423,7 +425,7 @@
         var aisSharing = ais.mode === "both" || ais.mode === "publish";
         var aisModeRow = document.createElement("div");
         aisModeRow.className = "row";
-        aisModeRow.appendChild(text("code", "AIS targets"));
+        aisModeRow.appendChild(text("code", "AIS"));
         var aisMode = document.createElement("select");
         [
           ["off", "Off"],

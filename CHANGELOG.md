@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 — 2026-11-06
+
+- Reorder the public-network card to Status, Peers, Sharing, AIS.
+
 ## 0.6.0 — 2026-11-06
 
 - Restore AIS sharing controls in the webapp. The sharing matrix now includes an
