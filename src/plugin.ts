@@ -86,7 +86,9 @@ export const PLUGIN_VERSION = PACKAGE_VERSION;
 const PUBLIC_NETWORK_ID = "all-vessels";
 const BATCH_INTERVAL_MS = 2000;
 const VALUES_INTERVAL_MS = 60_000;
-const STATIC_INTERVAL_MS = 600_000;
+const STATIC_INTERVAL_MS = 60_000;
+const CLAIM_INTERVAL_MS = 600_000;
+const AIS_STATIC_INTERVAL_MS = 300_000;
 const CAPABILITY_INTERVAL_MS = 30_000;
 const AIS_MAX_AGE_SECONDS = 900;
 const AIS_PRECEDENCE_WINDOW_SECONDS = 300;
@@ -198,6 +200,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
   let selfMmsi: number | undefined;
   let lastAisAt = 0;
   let lastAisPruneAt = 0;
+  let lastAisStaticAt = 0;
   const sentAisStatic = new Map<number, string>();
   const selfSeen = new Map<string, number>();
   const observationSeen = new Map<string, number>();
@@ -302,6 +305,11 @@ export default function createPlugin(app: ServerAPI): Plugin {
             path: path as Path,
             policy: "fixed" as const,
             period: 5000,
+          })),
+          ...STATIC_PATHS.map((path) => ({
+            path: path as Path,
+            policy: "fixed" as const,
+            period: 60000,
           })),
         ],
       },
@@ -515,6 +523,10 @@ export default function createPlugin(app: ServerAPI): Plugin {
       0,
       Math.round(Math.min(config.ais.maxTargets ?? 100, policy.ais.maxTargets)),
     );
+    if (now - lastAisStaticAt >= AIS_STATIC_INTERVAL_MS) {
+      sentAisStatic.clear();
+      lastAisStaticAt = now;
+    }
     const targets = aisStore.nearest(
       publisher.currentPosition,
       maxTargets,
@@ -616,7 +628,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
 
     publishGroups(now, valuesChanged);
 
-    if (now - lastClaimAt >= STATIC_INTERVAL_MS) publishClaim();
+    if (now - lastClaimAt >= CLAIM_INTERVAL_MS) publishClaim();
     if (now - lastCapabilityAt >= CAPABILITY_INTERVAL_MS) publishCapability();
 
     publishAis(now);

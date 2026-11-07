@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 — 2026-11-06
+
+- Fix missing vessel names over P2P. Own-vessel static data now refreshes every
+  60 seconds and static paths are subscribed, so names set after startup are
+  shared. AIS static/name records are re-sent every 5 minutes so peers that join
+  later receive target names too.
+
 ## 0.5.0 — 2026-11-06
 
 - Replace long, self-contained group invites with 10-character per-invite codes.
