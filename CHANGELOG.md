@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 — 2026-11-06
+
+- Restore AIS sharing controls in the webapp. The sharing matrix now includes an
+  **AIS targets** row with public/group audiences, plus an AIS mode selector
+  (Off, Receive only, Share and receive, Share only). The setting was hidden
+  during the UI cleanup; existing AIS configuration was preserved.
+- AIS mode changes apply live: enabling sharing starts the local AIS
+  subscription, disabling it stops collecting local AIS targets.
+
 ## 0.5.1 — 2026-11-06
 
 - Fix missing vessel names over P2P. Own-vessel static data now refreshes every

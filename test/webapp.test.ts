@@ -16,6 +16,7 @@ describe("admin webapp", () => {
     expect(html).toContain("setSharing(");
     expect(html).toContain("sharingCheckbox(");
     expect(html).toContain("setConsent(");
+    expect(html).toContain("AIS targets");
     expect(html).toContain("setGroupRate(");
     expect(html).toContain("setGroupRateCap(");
     expect(html).toContain("<summary>Advanced</summary>");

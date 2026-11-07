@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { ADMIN_PAGE } from "./admin-page.js";
 import type { GroupControl, GroupResult } from "./groups/control.js";
 import type { ClaimControl } from "./security/control.js";
-import type { ConsentMode, DataSetId } from "./config.js";
+import type { AisMode, ConsentMode, DataSetId } from "./config.js";
 
 export interface P2PStatus {
   started: boolean;
@@ -52,6 +52,11 @@ export interface SharingInfo {
     public: boolean;
     groups: "all" | string[];
   }>;
+  ais: {
+    public: boolean;
+    groups: "all" | string[];
+    mode: AisMode;
+  };
 }
 
 export interface P2PControl extends ClaimControl, GroupControl {
@@ -59,7 +64,11 @@ export interface P2PControl extends ClaimControl, GroupControl {
   sharing(): SharingInfo;
   setSharing(
     dataSet: string,
-    update: { public?: boolean; groups?: "all" | string[] },
+    update: {
+      public?: boolean;
+      groups?: "all" | string[];
+      mode?: AisMode;
+    },
   ): Promise<{ ok: boolean; error?: string }>;
   setConsent(consent: string): Promise<{ ok: boolean; error?: string }>;
 }
@@ -102,9 +111,11 @@ export function registerRoutes(
       dataSet?: unknown;
       public?: unknown;
       groups?: unknown;
+      mode?: unknown;
     };
     const publicValue =
       typeof body.public === "boolean" ? body.public : undefined;
+    const modeValue = typeof body.mode === "string" ? body.mode : undefined;
     let groups: "all" | string[] | undefined;
     if (body.groups === "all") {
       groups = "all";
@@ -122,7 +133,9 @@ export function registerRoutes(
     }
     if (
       typeof body.dataSet !== "string" ||
-      (publicValue === undefined && groups === undefined)
+      (publicValue === undefined &&
+        groups === undefined &&
+        modeValue === undefined)
     ) {
       res.status(400).json({
         ok: false,
@@ -131,7 +144,11 @@ export function registerRoutes(
       return;
     }
     void control
-      .setSharing(body.dataSet, { public: publicValue, groups })
+      .setSharing(body.dataSet, {
+        public: publicValue,
+        groups,
+        mode: modeValue as AisMode | undefined,
+      })
       .then((result) => sendGroup(res, result));
   });
 

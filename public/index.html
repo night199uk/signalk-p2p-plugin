@@ -415,6 +415,37 @@
         }
         root.appendChild(identityRow("Peers", status.peers));
 
+        var ais = sharing.ais || {
+          public: false,
+          groups: [],
+          mode: "off",
+        };
+        var aisSharing = ais.mode === "both" || ais.mode === "publish";
+        var aisModeRow = document.createElement("div");
+        aisModeRow.className = "row";
+        aisModeRow.appendChild(text("code", "AIS targets"));
+        var aisMode = document.createElement("select");
+        [
+          ["off", "Off"],
+          ["subscribe", "Receive only"],
+          ["both", "Share and receive"],
+          ["publish", "Share only"],
+        ].forEach(function (entry) {
+          var option = document.createElement("option");
+          option.value = entry[0];
+          option.textContent = entry[1];
+          aisMode.appendChild(option);
+        });
+        aisMode.value = ais.mode || "subscribe";
+        aisMode.onchange = function () {
+          setSharing("ais", { mode: aisMode.value });
+        };
+        aisModeRow.appendChild(aisMode);
+        aisModeRow.appendChild(
+          text("span", "Locally heard AIS vessels; audience below."),
+        );
+        root.appendChild(aisModeRow);
+
         var wrap = document.createElement("div");
         wrap.className = "sharing-wrap";
         var table = document.createElement("table");
@@ -471,6 +502,52 @@
           });
           table.appendChild(row);
         });
+
+        var aisRow = document.createElement("tr");
+        var aisName = document.createElement("td");
+        aisName.appendChild(text("code", "AIS targets"));
+        aisName.appendChild(
+          text("small", "Locally heard AIS vessels, capped to the nearest."),
+        );
+        aisRow.appendChild(aisName);
+        aisRow.appendChild(
+          sharingCheckbox(
+            ais.public,
+            function (checked) {
+              setSharing("ais", { public: checked });
+            },
+            !publicEnabled || !aisSharing,
+          ),
+        );
+        groups.forEach(function (group) {
+          var checked =
+            ais.groups === "all" ||
+            (Array.isArray(ais.groups) && ais.groups.indexOf(group.id) >= 0);
+          aisRow.appendChild(
+            sharingCheckbox(
+              checked,
+              function (value) {
+                var current =
+                  ais.groups === "all"
+                    ? groups.map(function (entry) {
+                        return entry.id;
+                      })
+                    : ais.groups.slice();
+                if (value && current.indexOf(group.id) < 0) {
+                  current.push(group.id);
+                }
+                if (!value) {
+                  current = current.filter(function (id) {
+                    return id !== group.id;
+                  });
+                }
+                setSharing("ais", { groups: current });
+              },
+              !aisSharing,
+            ),
+          );
+        });
+        table.appendChild(aisRow);
 
         wrap.appendChild(table);
         root.appendChild(wrap);

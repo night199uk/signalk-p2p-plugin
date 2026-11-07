@@ -27,6 +27,7 @@ import {
   DATA_SETS,
   resolveConfig,
   schema,
+  type AisMode,
   type Config,
   type ConsentMode,
   type DataSetId,
@@ -187,6 +188,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
   let operatorKeys: string[] = [];
   let injected = 0;
   let unsubscribes: Array<() => void> = [];
+  let aisUnsubscribe: (() => void) | undefined;
   let tickTimer: ReturnType<typeof setInterval> | undefined;
   let lastSnapshotAt = 0;
   let lastValuesAt = 0;
@@ -321,7 +323,8 @@ export default function createPlugin(app: ServerAPI): Plugin {
   }
 
   function subscribeAis(): void {
-    if (!aisStore || !canPublishAis()) return;
+    if (!aisStore || aisUnsubscribe || !canPublishAis()) return;
+    const stops: Array<() => void> = [];
     app.subscriptionmanager.subscribe(
       {
         context: "vessels.*" as Context,
@@ -332,12 +335,32 @@ export default function createPlugin(app: ServerAPI): Plugin {
         })),
         sourcePolicy: "all",
       },
-      unsubscribes,
+      stops,
       (subscriptionError) =>
         app.error(`P2P AIS subscription error: ${String(subscriptionError)}`),
       (delta: Delta) =>
         aisStore?.applyDelta(delta, Math.floor(Date.now() / 1000)),
     );
+    aisUnsubscribe = () => {
+      for (const stop of stops) {
+        try {
+          stop();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }
+
+  function unsubscribeAis(): void {
+    if (!aisUnsubscribe) return;
+    aisUnsubscribe();
+    aisUnsubscribe = undefined;
+  }
+
+  function applyAisSubscription(): void {
+    if (canPublishAis()) subscribeAis();
+    else unsubscribeAis();
   }
 
   function publishStatic(): void {
@@ -662,13 +685,54 @@ export default function createPlugin(app: ServerAPI): Plugin {
         public: config.sharing[set.id].public,
         groups: config.sharing[set.id].groups,
       })),
+      ais: {
+        public: config.ais.public,
+        groups: config.ais.groups,
+        mode: config.ais.mode,
+      },
     };
   }
 
   async function setSharing(
     dataSet: string,
-    update: { public?: boolean; groups?: "all" | string[] },
+    update: {
+      public?: boolean;
+      groups?: "all" | string[];
+      mode?: AisMode;
+    },
   ): Promise<{ ok: boolean; error?: string }> {
+    if (dataSet === "ais") {
+      if (update.groups !== undefined && update.groups !== "all") {
+        const active = new Set(
+          (groups?.list() ?? [])
+            .filter((info) => !info.removed)
+            .map((info) => info.id),
+        );
+        const unknown = update.groups.find((id) => !active.has(id));
+        if (unknown) return { ok: false, error: `unknown group ${unknown}` };
+      }
+      if (update.mode !== undefined) {
+        const modes: AisMode[] = ["both", "publish", "subscribe", "off"];
+        if (!modes.includes(update.mode)) {
+          return { ok: false, error: "invalid AIS mode" };
+        }
+      }
+      const previous = { ...config.ais };
+      if (update.public !== undefined) config.ais.public = update.public;
+      if (update.groups !== undefined) config.ais.groups = update.groups;
+      if (update.mode !== undefined) config.ais.mode = update.mode;
+      try {
+        saveAdvancedConfig(app.getDataDirPath(), config);
+        if (update.mode !== undefined) applyAisSubscription();
+        return { ok: true };
+      } catch (saveError) {
+        config.ais = previous;
+        return {
+          ok: false,
+          error: `save failed: ${String(saveError)}`,
+        };
+      }
+    }
     const set = DATA_SETS.find((entry) => entry.id === dataSet);
     if (!set) return { ok: false, error: "unknown data set" };
     if (update.groups !== undefined && update.groups !== "all") {
@@ -1076,6 +1140,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
         }
       }
       unsubscribes = [];
+      unsubscribeAis();
       void client?.stop();
       client = undefined;
       publisher = undefined;

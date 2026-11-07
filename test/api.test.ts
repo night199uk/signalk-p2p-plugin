@@ -34,7 +34,14 @@ describe("plugin routes", () => {
         isAttestor: true,
       }),
       claims: () => [],
-      sharing: () => ({ dataSets: [] }),
+      sharing: () => ({
+        dataSets: [],
+        ais: {
+          public: false,
+          groups: [] as string[],
+          mode: "subscribe" as const,
+        },
+      }),
       setSharing: async (dataSet, update) => {
         shares.push([dataSet, update]);
         return { ok: true };
@@ -80,7 +87,10 @@ describe("plugin routes", () => {
     expect(await claims.json()).toEqual({ claims: [] });
 
     const sharing = await fetch(`${base}/sharing`);
-    expect(await sharing.json()).toEqual({ dataSets: [] });
+    expect(await sharing.json()).toEqual({
+      dataSets: [],
+      ais: { public: false, groups: [], mode: "subscribe" },
+    });
 
     const setSharing = await fetch(`${base}/sharing`, {
       method: "POST",
@@ -100,7 +110,18 @@ describe("plugin routes", () => {
     expect(setGroups.status).toBe(200);
     expect(shares[1]).toEqual([
       "navigation",
-      { public: undefined, groups: ["g1"] },
+      { public: undefined, groups: ["g1"], mode: undefined },
+    ]);
+
+    const setAis = await fetch(`${base}/sharing`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dataSet: "ais", mode: "both" }),
+    });
+    expect(setAis.status).toBe(200);
+    expect(shares[2]).toEqual([
+      "ais",
+      { public: undefined, groups: undefined, mode: "both" },
     ]);
 
     const consent = await fetch(`${base}/network/consent`, {
@@ -132,7 +153,14 @@ describe("plugin routes", () => {
       }),
       identity: () => undefined,
       claims: () => [],
-      sharing: () => ({ dataSets: [] }),
+      sharing: () => ({
+        dataSets: [],
+        ais: {
+          public: false,
+          groups: [] as string[],
+          mode: "subscribe" as const,
+        },
+      }),
       setSharing: async () => ({ ok: true }),
       setConsent: async () => ({ ok: true }),
       attest: () => ({ ok: false, error: "not an attestor" }),
