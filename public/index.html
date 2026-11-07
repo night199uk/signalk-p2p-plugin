@@ -296,6 +296,14 @@
         );
         root.appendChild(text("h3", "Status"));
         root.appendChild(identityRow("Version", status.version));
+        if (status.eventLoop) {
+          root.appendChild(
+            identityRow("Event-loop max", status.eventLoop.maxMs + " ms"),
+          );
+          root.appendChild(
+            identityRow("Event-loop mean", status.eventLoop.meanMs + " ms"),
+          );
+        }
         if (status.policy) {
           root.appendChild(
             identityRow(
@@ -829,6 +837,17 @@
       refresh().catch(function (error) {
         say(String(error), true);
       });
+
+      setInterval(function () {
+        if (document.visibilityState !== "visible") return;
+        var tag = document.activeElement && document.activeElement.tagName;
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+          return;
+        }
+        refresh().catch(function (error) {
+          say(String(error), true);
+        });
+      }, 5000);
     </script>
   </body>
 </html>

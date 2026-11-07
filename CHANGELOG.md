@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 — 2026-11-06
+
+- Reduce main-thread load: subscribe to non-navigation self values with a 5 s
+  fixed policy, subscribe to AIS only when publishing AIS and at a 30 s fixed
+  policy, and expose event-loop delay in the status.
+- Auto-refresh the webapp status every 5 seconds so peer changes are visible.
+
 ## 0.4.1 — 2026-11-06
 
 - Move **Invite** next to each group and create a member invite token with no

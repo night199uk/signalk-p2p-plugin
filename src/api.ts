@@ -23,6 +23,10 @@ export interface P2PStatus {
     enabled: boolean;
   }>;
   peers: number;
+  eventLoop?: {
+    maxMs: number;
+    meanMs: number;
+  };
   injected: number;
   claims: number;
   groups: number;

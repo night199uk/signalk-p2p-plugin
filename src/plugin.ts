@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { monitorEventLoopDelay } from "node:perf_hooks";
 import { join } from "node:path";
 import type {
   Context,
@@ -179,6 +180,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
   let startedAt = 0;
   let running = false;
   let error: string | undefined;
+  const eventLoopDelay = monitorEventLoopDelay({ resolution: 1000 });
   let policy: NetworkPolicy = defaultPolicy();
   let operatorKeys: string[] = [];
   let injected = 0;
@@ -234,6 +236,12 @@ export default function createPlugin(app: ServerAPI): Plugin {
         enabled: network.enabled,
       })),
       peers: client?.peerCount ?? 0,
+      eventLoop: running
+        ? {
+            maxMs: Math.round(eventLoopDelay.max / 1e6),
+            meanMs: Math.round(eventLoopDelay.mean / 1e6),
+          }
+        : undefined,
       injected,
       claims: registry?.snapshot().length ?? 0,
       groups: groups?.list().length ?? 0,
@@ -282,14 +290,20 @@ export default function createPlugin(app: ServerAPI): Plugin {
   }
 
   function subscribeSelf(): void {
-    const paths = [...SNAPSHOT_PATHS, ...VALUE_PATHS];
     app.subscriptionmanager.subscribe(
       {
         context: "vessels.self" as Context,
-        subscribe: paths.map((path) => ({
-          path: path as Path,
-          policy: "instant" as const,
-        })),
+        subscribe: [
+          ...SNAPSHOT_PATHS.map((path) => ({
+            path: path as Path,
+            policy: "instant" as const,
+          })),
+          ...VALUE_PATHS.map((path) => ({
+            path: path as Path,
+            policy: "fixed" as const,
+            period: 5000,
+          })),
+        ],
       },
       unsubscribes,
       (subscriptionError) =>
@@ -299,13 +313,14 @@ export default function createPlugin(app: ServerAPI): Plugin {
   }
 
   function subscribeAis(): void {
-    if (!aisStore) return;
+    if (!aisStore || !canPublishAis()) return;
     app.subscriptionmanager.subscribe(
       {
         context: "vessels.*" as Context,
         subscribe: AIS_PATHS.map((path) => ({
           path: path as Path,
-          policy: "instant" as const,
+          policy: "fixed" as const,
+          period: 30000,
         })),
         sourcePolicy: "all",
       },
@@ -986,6 +1001,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
       }
 
       running = true;
+      eventLoopDelay.enable();
       error = undefined;
 
       publisher = new SelfPublisher(selfId);
@@ -1035,6 +1051,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
 
     stop() {
       running = false;
+      eventLoopDelay.disable();
       if (tickTimer) {
         clearInterval(tickTimer);
         tickTimer = undefined;
