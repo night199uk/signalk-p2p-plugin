@@ -17,14 +17,7 @@ node --version
 
 ## 2. Install the package
 
-From a checkout, build a tarball and install it into `/opt`:
-
-```bash
-npm pack
-scp signalk-p2p-plugin-*.tgz root@your-host:/tmp/
-```
-
-On the host:
+On the host, install the published package from npm:
 
 ```bash
 id -u signalk-p2p >/dev/null 2>&1 || \
@@ -33,9 +26,11 @@ install -d -o signalk-p2p -g signalk-p2p /opt/signalk-p2p /var/lib/signalk-p2p
 install -d /etc/signalk-p2p
 cd /opt/signalk-p2p
 npm init -y
-npm install --omit=dev /tmp/signalk-p2p-plugin-*.tgz
+npm install --omit=dev --save-exact signalk-p2p-plugin@latest
 chown -R signalk-p2p:signalk-p2p /opt/signalk-p2p /var/lib/signalk-p2p
 ```
+
+Pin a specific version instead of `@latest` if you want reproducible upgrades.
 
 ## 3. Configure and run
 
