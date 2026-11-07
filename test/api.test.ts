@@ -15,7 +15,9 @@ afterEach(async () => {
 describe("plugin routes", () => {
   it("serves status, identity, claims and attest requests", async () => {
     const attests: unknown[] = [];
-    const shares: Array<[string, boolean]> = [];
+    const shares: Array<
+      [string, { public?: boolean; groups?: "all" | string[] }]
+    > = [];
     const control: P2PControl = {
       status: () => ({
         started: true,
@@ -33,10 +35,11 @@ describe("plugin routes", () => {
       }),
       claims: () => [],
       sharing: () => ({ dataSets: [] }),
-      setPublicSharing: async (dataSet, publicValue) => {
-        shares.push([dataSet, publicValue]);
+      setSharing: async (dataSet, update) => {
+        shares.push([dataSet, update]);
         return { ok: true };
       },
+      setConsent: async () => ({ ok: true }),
       attest: (input) => {
         attests.push(input);
         return { ok: true };
@@ -85,7 +88,27 @@ describe("plugin routes", () => {
       body: JSON.stringify({ dataSet: "position", public: false }),
     });
     expect(setSharing.status).toBe(200);
-    expect(shares).toEqual([["position", false]]);
+    expect(shares).toEqual([
+      ["position", { public: false, groups: undefined }],
+    ]);
+
+    const setGroups = await fetch(`${base}/sharing`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dataSet: "navigation", groups: ["g1"] }),
+    });
+    expect(setGroups.status).toBe(200);
+    expect(shares[1]).toEqual([
+      "navigation",
+      { public: undefined, groups: ["g1"] },
+    ]);
+
+    const consent = await fetch(`${base}/network/consent`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ consent: "underway-gated" }),
+    });
+    expect(consent.status).toBe(200);
 
     const attest = await fetch(`${base}/claims/attest`, {
       method: "POST",
@@ -110,7 +133,8 @@ describe("plugin routes", () => {
       identity: () => undefined,
       claims: () => [],
       sharing: () => ({ dataSets: [] }),
-      setPublicSharing: async () => ({ ok: true }),
+      setSharing: async () => ({ ok: true }),
+      setConsent: async () => ({ ok: true }),
       attest: () => ({ ok: false, error: "not an attestor" }),
       revoke: () => ({ ok: false, error: "not an attestor" }),
     };

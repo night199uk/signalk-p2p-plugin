@@ -50,7 +50,25 @@ journalctl -u signalk-p2p-peer -f
 The peer prints its identity fingerprint and the topic it joined. The Ed25519
 identity is created in `/var/lib/signalk-p2p/identity/ed25519.pem` (mode 0600).
 
-## 4. Firewall
+## 4. Publish the network policy (optional)
+
+A peer can distribute the signed public-network policy. It verifies the
+signature with the pinned operator key and republishes it every five minutes; it
+never needs the operator private key.
+
+```bash
+cp deploy/policy.json /etc/signalk-p2p/policy.json
+# add this key to /etc/signalk-p2p/peer.json:
+#   "policyFile": "/etc/signalk-p2p/policy.json"
+systemctl restart signalk-p2p-peer
+journalctl -u signalk-p2p-peer -n 20 | grep policy
+```
+
+Sign a new policy with `scripts/sign-policy.ts` from a checkout, then copy the
+signed file and restart the peer. Clients keep the newest valid policy they have
+seen, so they continue to use it if the publisher is offline.
+
+## 5. Firewall
 
 Hyperswarm uses UDP. If you set `"port": 49737`, allow UDP 49737 inbound so other
 peers can dial it:
@@ -70,7 +88,7 @@ to join and relay a private group. The peer sends a join request from its
 synthetic selfId; an admin must approve it (a `viewer` role is enough, because a
 relay does not publish vessel data).
 
-## 5. Verify
+## 7. Verify
 
 From another machine on a different network:
 

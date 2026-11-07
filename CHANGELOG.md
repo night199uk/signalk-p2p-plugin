@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0 — 2026-11-06
+
+- Add a signed, versioned network policy for sharding, election windows, public
+  publish-rate caps, AIS caps and protocol compatibility. A signed default ships
+  with the package; newer signed policies received over the mesh override it and
+  are cached. Clients cannot override topology/rate limits locally.
+- Add the network-operator key tooling and a pinned default operator public key;
+  the standalone peer can verify and republish a signed policy file.
+- Safer defaults: public network is receive-only, AIS is receive-only/private,
+  and new installs must opt in before transmitting.
+- Add a per-data-set sharing matrix in the webapp: Public plus every active group
+  as columns, with checkboxes and no manual group IDs.
+- Add group publish-rate caps set by group admins, with per-member rates inside
+  the cap (supports 1–2 Hz small groups).
+- Move advanced/sharing/security/topology settings into a plugin-owned
+  `advanced.json` so the simplified Signal K config form cannot drop them; the
+  form now exposes only relay and received-vessel toggles.
+- Hide identity, claims and mesh details behind an Advanced disclosure in the
+  webapp, and hide empty join-request/proposal sections.
+
 ## 0.3.0 — 2026-11-06
 
 - Add a Public network card to the webapp with status, peers/elected relay and

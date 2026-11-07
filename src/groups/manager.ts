@@ -31,6 +31,10 @@ import {
   type GroupRole,
   type GroupRoster,
   type GroupState,
+  DEFAULT_GROUP_RATE_CAP_HZ,
+  clampGroupRate,
+  groupPublishRate,
+  groupRateCap,
   type JoinRequest,
   type PendingRequest,
   type ProposalInfo,
@@ -172,6 +176,7 @@ export class GroupManager {
       name: name.trim(),
       version: 1,
       epoch: 1,
+      rateCapHz: DEFAULT_GROUP_RATE_CAP_HZ,
       adminThreshold: 1,
       members: [this.selfMember("owner")],
       wrappedKeys: [this.wrap(epochKey, this.identity.boxPublicKey)],
@@ -417,6 +422,30 @@ export class GroupManager {
     return this.info(state);
   }
 
+  async setRateCap(groupId: string, rateHz: number): Promise<GroupInfo> {
+    const state = this.requireGroup(groupId);
+    if (!this.isAdmin(state)) {
+      throw new Error("only an owner or admin can change the rate cap");
+    }
+    const candidate = structuredClone(state.roster);
+    candidate.rateCapHz = clampGroupRate(rateHz);
+    candidate.version += 1;
+    candidate.updatedAt = this.now();
+    await this.propose(state, candidate);
+    return this.info(state);
+  }
+
+  async setPublishRate(groupId: string, rateHz: number): Promise<GroupInfo> {
+    const state = this.requireGroup(groupId);
+    if (!this.canPublish(groupId)) {
+      throw new Error("this member cannot publish to the group");
+    }
+    const cap = groupRateCap(state.roster);
+    state.publishRateHz = Math.min(clampGroupRate(rateHz), cap);
+    await this.save();
+    return this.info(state);
+  }
+
   async approveProposal(groupId: string, hash: string): Promise<GroupInfo> {
     const state = this.requireGroup(groupId);
     if (!this.isAdmin(state)) {
@@ -578,6 +607,10 @@ export class GroupManager {
     state.dataTopic = groupDataTopic(epochKey).toString("hex");
     state.role = me.role;
     state.removed = false;
+    state.publishRateHz = Math.min(
+      state.publishRateHz ?? groupRateCap(roster),
+      groupRateCap(roster),
+    );
     await this.save();
     this.broadcastRoster({ roster, approvals });
     if (state.dataTopic !== previousTopic) {
@@ -826,6 +859,7 @@ export class GroupManager {
         Buffer.from(roster.groupId, "hex"),
       ).toString("hex"),
       role,
+      publishRateHz: groupRateCap(roster),
     };
   }
 
@@ -838,6 +872,8 @@ export class GroupManager {
       members: state.roster.members.length,
       removed: Boolean(state.removed),
       pendingProposals: this.proposals.get(state.roster.groupId)?.size ?? 0,
+      rateCapHz: groupRateCap(state.roster),
+      publishRateHz: groupPublishRate(state),
     };
   }
 

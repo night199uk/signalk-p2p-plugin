@@ -1,3 +1,5 @@
+import { DEFAULT_OPERATOR_PUBLIC_KEY } from "./policy/operator.js";
+
 export const DATA_SETS = [
   {
     id: "identity",
@@ -171,8 +173,14 @@ export interface InjectConfig {
   maxAgeSeconds: number;
 }
 
+export interface PolicyConfig {
+  /** Ed25519 public keys allowed to sign the network policy. */
+  operatorKeys: string[];
+}
+
 export interface Config {
   identity: { keyFile: string };
+  policy: PolicyConfig;
   sharding: ShardingConfig;
   /** Optional always-on peers used to bootstrap or bridge CGNAT. */
   bootstrapPeers: string[];
@@ -198,6 +206,7 @@ function defaultSharing(): SharingConfig {
 export function defaultConfig(): Config {
   return {
     identity: { keyFile: "auto" },
+    policy: { operatorKeys: [DEFAULT_OPERATOR_PUBLIC_KEY] },
     sharding: {
       maxVesselsPerShard: 500,
       maxVesselsPerInstance: 1000,
@@ -224,9 +233,9 @@ export function defaultConfig(): Config {
     },
     sharing: defaultSharing(),
     ais: {
-      public: true,
+      public: false,
       groups: [],
-      mode: "both",
+      mode: "subscribe",
       maxTargets: 100,
       rateHz: 0.02,
     },
@@ -235,7 +244,7 @@ export function defaultConfig(): Config {
         id: "all-vessels",
         kind: "public",
         enabled: true,
-        consent: "opt-out",
+        consent: "receive-only",
         rateHzUnderway: 0.05,
         rateHzMoored: 0.01,
       },
@@ -262,6 +271,7 @@ export function resolveConfig(partial?: Partial<Config>): Config {
 
   return {
     identity: { ...defaults.identity, ...partial.identity },
+    policy: { ...defaults.policy, ...partial.policy },
     sharding: { ...defaults.sharding, ...partial.sharding },
     bootstrapPeers: partial.bootstrapPeers ?? defaults.bootstrapPeers,
     election: { ...defaults.election, ...partial.election },
@@ -274,314 +284,32 @@ export function resolveConfig(partial?: Partial<Config>): Config {
 }
 
 export function schema(): Record<string, unknown> {
-  const audience = (
-    title: string,
-    description: string,
-    publicDefault: boolean,
-    groupsDefault: "all" | "none",
-  ) => ({
-    type: "object",
-    title,
-    description,
-    properties: {
-      public: {
-        type: "boolean",
-        title: "Share publicly",
-        description: "Publish this data set on the global all-vessels network.",
-        default: publicDefault,
-      },
-      groups: {
-        title: "Share with groups",
-        description:
-          "Publish this data set to every group, or only to the selected groups.",
-        oneOf: [
-          { enum: ["all"], title: "All groups" },
-          {
-            type: "array",
-            title: "Selected groups",
-            items: { type: "string", title: "Group id" },
-          },
-        ],
-        default: groupsDefault === "all" ? "all" : [],
-      },
-    },
-    additionalProperties: false,
-  });
-
-  const sharingProperties = Object.fromEntries(
-    DATA_SETS.map((dataSet) => [
-      dataSet.id,
-      audience(
-        dataSet.title,
-        dataSet.description,
-        dataSet.publicDefault,
-        dataSet.groupsDefault,
-      ),
-    ]),
-  );
-
   return {
     type: "object",
     title: "Signal K P2P",
     properties: {
-      identity: {
-        type: "object",
-        title: "Identity",
-        properties: {
-          keyFile: {
-            type: "string",
-            title: "Identity key file",
-            description:
-              "Where the instance Ed25519 key is stored. 'auto' keeps it in the plugin data directory.",
-            default: "auto",
-          },
-        },
-      },
-      sharding: {
-        type: "object",
-        title: "Public network sharding",
-        properties: {
-          maxVesselsPerShard: {
-            type: "number",
-            title: "Maximum vessels per shard",
-            default: 500,
-            minimum: 100,
-          },
-          maxVesselsPerInstance: {
-            type: "number",
-            title: "Maximum vessels injected per instance",
-            default: 1000,
-            minimum: 100,
-          },
-          lookAheadKm: {
-            type: "number",
-            title: "Look-ahead radius (km)",
-            default: 50,
-            minimum: 0,
-          },
-          splitSettleMinutes: {
-            type: "number",
-            title: "Split settle time (minutes)",
-            default: 10,
-            minimum: 1,
-          },
-          mergeSettleMinutes: {
-            type: "number",
-            title: "Merge settle time (minutes)",
-            default: 60,
-            minimum: 1,
-          },
-          mergeBelowRatio: {
-            type: "number",
-            title: "Merge below this fraction of the maximum",
-            default: 0.25,
-            minimum: 0,
-            maximum: 1,
-          },
-          boundaryHysteresisMeters: {
-            type: "number",
-            title: "Shard boundary hysteresis (m)",
-            default: 1000,
-            minimum: 0,
-          },
-        },
-      },
-      bootstrapPeers: {
-        type: "array",
-        title: "Bootstrap peers",
-        description:
-          "Optional always-on peers used to reach the mesh or bridge CGNAT. " +
-          "They are ordinary peers, not required relays; leave empty for an " +
-          "open, peer-elected mesh.",
-        items: { type: "string" },
-        default: [],
-      },
       election: {
         type: "object",
-        title: "Peer election",
+        title: "Relay",
         properties: {
-          enabled: {
-            type: "boolean",
-            title: "Elect a relay/aggregator per shard",
-            default: true,
-          },
-          epochMinutes: {
-            type: "number",
-            title: "Election epoch (minutes)",
-            default: 10,
-            minimum: 1,
-          },
-          minUptimeMinutes: {
-            type: "number",
-            title: "Minimum uptime to be eligible (minutes)",
-            default: 10,
-            minimum: 0,
-          },
           relayConsent: {
             type: "boolean",
-            title: "Offer to relay/aggregate for this shard",
-            default: false,
-          },
-          reachable: {
-            type: "boolean",
-            title: "Advertise as publicly reachable",
-            default: false,
-          },
-          unmetered: {
-            type: "boolean",
-            title: "Advertise an unmetered link",
-            default: false,
-          },
-          capacity: {
-            type: "number",
-            title: "Relative relay capacity",
-            default: 1,
-            minimum: 1,
-            maximum: 16,
-          },
-        },
-      },
-      security: {
-        type: "object",
-        title: "Security",
-        properties: {
-          publicAttestors: {
-            type: "array",
-            title: "Public attestors",
+            title: "Help relay nearby vessels",
             description:
-              "Keys allowed to attest public MMSI claims. Empty means TOFU only.",
-            items: { type: "string" },
-            default: [],
-          },
-          requireAttestation: {
-            type: "boolean",
-            title: "Require attestation for public members",
+              "Offer this instance as a relay when the network elects it. " +
+              "Topology and rate limits come from the signed network policy.",
             default: false,
-          },
-          attestationThreshold: {
-            type: "number",
-            title: "Attestations required",
-            default: 1,
-            minimum: 1,
-          },
-        },
-      },
-      sharing: {
-        type: "object",
-        title: "Shared data",
-        description:
-          "Choose who receives each data set. Public means the all-vessels network.",
-        properties: sharingProperties,
-      },
-      ais: {
-        type: "object",
-        title: "AIS vessels",
-        properties: {
-          public: { type: "boolean", title: "Share publicly", default: true },
-          groups: {
-            title: "Share with groups",
-            oneOf: [
-              { enum: ["all"], title: "All groups" },
-              {
-                type: "array",
-                title: "Selected groups",
-                items: { type: "string" },
-              },
-            ],
-            default: [],
-          },
-          mode: {
-            type: "string",
-            title: "AIS direction",
-            enum: ["both", "publish", "subscribe", "off"],
-            enumNames: [
-              "Send and receive",
-              "Send our AIS vessels",
-              "Receive AIS vessels only",
-              "No AIS over P2P",
-            ],
-            default: "both",
-          },
-          maxTargets: {
-            type: "number",
-            title: "Maximum AIS targets per snapshot",
-            default: 100,
-            minimum: 0,
-          },
-          rateHz: {
-            type: "number",
-            title: "AIS snapshot rate (Hz)",
-            default: 0.02,
-            minimum: 0,
-          },
-        },
-      },
-      networks: {
-        type: "array",
-        title: "Networks",
-        items: {
-          type: "object",
-          properties: {
-            id: { type: "string", title: "Id" },
-            kind: {
-              type: "string",
-              title: "Kind",
-              enum: ["public", "group"],
-            },
-            name: { type: "string", title: "Name" },
-            enabled: { type: "boolean", title: "Enabled", default: true },
-            consent: {
-              type: "string",
-              title: "Consent",
-              enum: [
-                "opt-out",
-                "underway-gated",
-                "receive-only",
-                "coarse-position",
-              ],
-              enumNames: [
-                "Publish everything",
-                "Publish only while underway",
-                "Receive only",
-                "Publish a coarse position",
-              ],
-              default: "opt-out",
-            },
-            rateHzUnderway: {
-              type: "number",
-              title: "Snapshot rate underway (Hz)",
-              default: 0.05,
-              minimum: 0,
-            },
-            rateHzMoored: {
-              type: "number",
-              title: "Snapshot rate moored (Hz)",
-              default: 0.01,
-              minimum: 0,
-            },
-            invite: { type: "string", title: "Group invite" },
           },
         },
       },
       inject: {
         type: "object",
-        title: "Injection",
+        title: "Other vessels",
         properties: {
           enabled: {
             type: "boolean",
-            title: "Inject received vessels into the Signal K tree",
+            title: "Show vessels received from the network",
             default: true,
-          },
-          history: {
-            type: "boolean",
-            title: "Allow injected vessels in history",
-            default: false,
-          },
-          maxAgeSeconds: {
-            type: "number",
-            title: "Maximum age (seconds)",
-            default: 900,
-            minimum: 60,
           },
         },
       },

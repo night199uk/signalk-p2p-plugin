@@ -4,6 +4,8 @@ import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { GroupManager } from "../groups/manager.js";
+import { defaultOperatorKeys } from "../policy/operator.js";
+import { decodePolicy, verifyPolicy } from "../policy/policy.js";
 import { loadOrCreateIdentity } from "../identity.js";
 import { RelayHub } from "../live/relay.js";
 import { networkTopic } from "../live/topic.js";
@@ -23,6 +25,7 @@ Options:
       --history <n>          recent batches replayed to new peers (default: 10)
       --port <n>             DHT UDP port (useful for firewall rules)
       --group-invite <token> join and relay a private group (repeatable)
+      --policy <file>        publish a signed network policy (repeat every 5 min)
   -v, --version              show the version
   -h, --help                 show this help
 
@@ -43,6 +46,7 @@ async function main(): Promise<void> {
       history: { type: "string" },
       port: { type: "string" },
       "group-invite": { type: "string", multiple: true },
+      policy: { type: "string" },
       version: { type: "boolean", short: "v" },
       help: { type: "boolean", short: "h" },
     },
@@ -90,6 +94,18 @@ async function main(): Promise<void> {
   });
 
   await hub.start();
+
+  let policyTimer: ReturnType<typeof setInterval> | undefined;
+  if (config.policyFile) {
+    const signed = decodePolicy(readFileSync(config.policyFile));
+    if (!verifyPolicy(signed, defaultOperatorKeys(), config.topic)) {
+      throw new Error("network policy signature or topic does not match");
+    }
+    hub.publishPolicy(signed);
+    policyTimer = setInterval(() => hub.publishPolicy(signed), 5 * 60_000);
+    policyTimer.unref?.();
+  }
+
   console.log(
     `[signalk-p2p] peer ${identity.fingerprint.slice(0, 12)} ` +
       `relaying "${config.topic}" ` +
@@ -129,6 +145,7 @@ async function main(): Promise<void> {
       `[signalk-p2p] stopping on ${signal} ` +
         `(${hub.peerCount} peers, ${hub.forwardedBatches} batches)`,
     );
+    if (policyTimer) clearInterval(policyTimer);
     await groups.stop();
     await hub.stop();
     process.exit(0);

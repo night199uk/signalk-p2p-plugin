@@ -18,6 +18,8 @@ export interface PeerConfig {
   port?: number;
   /** Group invite tokens; each group is joined and relayed. */
   groupInvites: string[];
+  /** Signed network-policy file to publish periodically. */
+  policyFile?: string;
 }
 
 export interface PeerConfigOverrides {
@@ -29,6 +31,7 @@ export interface PeerConfigOverrides {
   historyBatches?: number;
   port?: number;
   groupInvites?: string[];
+  policyFile?: string;
 }
 
 export const DEFAULT_PEER_CONFIG: PeerConfig = {
@@ -55,6 +58,7 @@ export function loadPeerConfig(
   assign(fromOverrides, "historyBatches", overrides.historyBatches);
   assign(fromOverrides, "port", overrides.port);
   assign(fromOverrides, "groupInvites", overrides.groupInvites);
+  assign(fromOverrides, "policyFile", overrides.policyFile);
 
   const config: PeerConfig = {
     ...DEFAULT_PEER_CONFIG,
@@ -115,5 +119,11 @@ function validate(config: PeerConfig): void {
     config.groupInvites.some((invite) => typeof invite !== "string")
   ) {
     throw new Error("peer config: groupInvites must be an array of strings");
+  }
+  if (
+    config.policyFile !== undefined &&
+    (typeof config.policyFile !== "string" || config.policyFile.length === 0)
+  ) {
+    throw new Error("peer config: policyFile must be a non-empty string");
   }
 }

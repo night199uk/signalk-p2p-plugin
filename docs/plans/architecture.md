@@ -13,8 +13,8 @@ of the design must not violate.
 **Goal.** Let Signal K instances form peer-to-peer meshes and share vessel data in
 real time:
 
-- one **global public network** (`all-vessels`), joined and transmitting by
-  default, opt-out;
+- one **global public network** (`all-vessels`), joined with a receive-only
+  default; transmission and consent are per-instance;
 - any number of **private groups**, invite-only and encrypted.
 
 A vessel may participate in both at once, with a different view of its data in

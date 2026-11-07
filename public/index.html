@@ -40,6 +40,32 @@
       .network-card input[type="checkbox"] {
         accent-color: #0fb9e9;
       }
+      .sharing-wrap {
+        overflow-x: auto;
+        margin-top: 0.5rem;
+      }
+      .sharing-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .sharing-table th,
+      .sharing-table td {
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid #172a45;
+        text-align: left;
+        vertical-align: top;
+      }
+      .sharing-table th {
+        color: #9fb3c8;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+      }
+      .sharing-table td small {
+        color: #9fb3c8;
+        display: block;
+      }
       section {
         margin: 1.25rem 0;
       }
@@ -75,6 +101,25 @@
       button:hover {
         background: #7dd3fc;
       }
+      details {
+        margin: 1rem 0;
+      }
+      summary {
+        cursor: pointer;
+        color: #9fb3c8;
+        font-weight: 600;
+      }
+      input[type="number"],
+      select {
+        background: #101f38;
+        color: #e8eef8;
+        border: 1px solid #27405f;
+        border-radius: 0.35rem;
+        padding: 0.2rem 0.35rem;
+      }
+      input[type="number"] {
+        width: 5.5rem;
+      }
       textarea {
         width: 100%;
         min-height: 4rem;
@@ -103,15 +148,18 @@
     <h1>Signal K P2P</h1>
     <div id="message"></div>
 
-    <section>
-      <h2>Identity</h2>
-      <div id="identity">loading…</div>
-    </section>
+    <details>
+      <summary>Advanced</summary>
+      <section>
+        <h2>Identity</h2>
+        <div id="identity">loading…</div>
+      </section>
 
-    <section>
-      <h2>Claims</h2>
-      <div id="claims"></div>
-    </section>
+      <section>
+        <h2>Claims</h2>
+        <div id="claims"></div>
+      </section>
+    </details>
 
     <section>
       <h2>Groups &amp; networks</h2>
@@ -122,7 +170,6 @@
         <button onclick="createGroup()">Create group</button>
         <button onclick="invite()">Create invite</button>
         <button onclick="joinGroup()">Join with token</button>
-        <button onclick="setThreshold()">Set threshold</button>
       </div>
       <textarea
         id="token"
@@ -130,12 +177,12 @@
       ></textarea>
     </section>
 
-    <section>
+    <section id="requests-section">
       <h2>Join requests</h2>
       <div id="requests"></div>
     </section>
 
-    <section>
+    <section id="proposals-section">
       <h2>Pending proposals</h2>
       <div id="proposals"></div>
     </section>
@@ -212,7 +259,13 @@
           call("/sharing"),
         ]);
         renderIdentity(results[0], results[1]);
-        renderPublicNetwork(results[0], results[6]);
+        renderSharing(
+          results[0],
+          results[6],
+          (results[3].groups || []).filter(function (group) {
+            return !group.removed;
+          }),
+        );
         renderClaims(results[2].claims || []);
         renderGroups(results[3].groups || []);
         renderRequests(results[4].requests || []);
@@ -244,6 +297,27 @@
         );
         root.appendChild(text("h3", "Status"));
         root.appendChild(identityRow("Version", status.version));
+        if (status.policy) {
+          root.appendChild(
+            identityRow(
+              "Network policy",
+              "v" +
+                status.policy.version +
+                " · issued " +
+                new Date(status.policy.issuedAt * 1000)
+                  .toISOString()
+                  .slice(0, 10),
+            ),
+          );
+          if (status.policy.operator) {
+            root.appendChild(
+              identityRow(
+                "Policy operator",
+                status.policy.operator.slice(0, 16) + "…",
+              ),
+            );
+          }
+        }
         root.appendChild(identityRow("Started", status.started ? "yes" : "no"));
         root.appendChild(identityRow("Peers", status.peers));
         root.appendChild(identityRow("Injected vessels", status.injected));
@@ -278,13 +352,28 @@
         }
       }
 
-      function renderPublicNetwork(status, sharing) {
+      function sharingCheckbox(checked, onchange, disabled) {
+        var cell = document.createElement("td");
+        var input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = !!checked;
+        input.disabled = Boolean(disabled);
+        input.onchange = function () {
+          onchange(input.checked);
+        };
+        cell.appendChild(input);
+        return cell;
+      }
+
+      function renderSharing(status, sharing, groups) {
         clear("public-network");
         var root = document.getElementById("public-network");
         root.className = "network-card";
         status = status || {};
         sharing = sharing || {};
+        groups = groups || [];
         var network = sharing.network;
+        var publicEnabled = Boolean(network && network.enabled);
         root.appendChild(
           identityRow(
             "Public network",
@@ -293,52 +382,121 @@
         );
         if (network) {
           root.appendChild(
-            identityRow(
-              "Status",
-              (network.enabled ? "enabled" : "disabled") +
-                " · " +
-                (network.consent || "opt-out"),
-            ),
+            identityRow("Status", network.enabled ? "enabled" : "disabled"),
           );
+          var consentRow = document.createElement("div");
+          consentRow.className = "row";
+          consentRow.appendChild(text("code", "Sharing"));
+          var consent = document.createElement("select");
+          [
+            ["receive-only", "Receive only (don't share my vessel)"],
+            ["underway-gated", "Share only while underway"],
+            ["coarse-position", "Share an approximate position"],
+            ["opt-out", "Share my vessel"],
+          ].forEach(function (entry) {
+            var option = document.createElement("option");
+            option.value = entry[0];
+            option.textContent = entry[1];
+            consent.appendChild(option);
+          });
+          consent.value = network.consent || "receive-only";
+          consent.onchange = function () {
+            setConsent(consent.value);
+          };
+          consentRow.appendChild(consent);
+          root.appendChild(consentRow);
         }
         root.appendChild(identityRow("Peers", status.peers));
-        if (status.electedPeer) {
+
+        var wrap = document.createElement("div");
+        wrap.className = "sharing-wrap";
+        var table = document.createElement("table");
+        table.className = "sharing-table";
+
+        var head = document.createElement("tr");
+        head.appendChild(text("th", "Data set"));
+        head.appendChild(text("th", "Public"));
+        groups.forEach(function (group) {
+          var th = text("th", group.name || group.id.slice(0, 8));
+          th.title = group.id;
+          head.appendChild(th);
+        });
+        table.appendChild(head);
+
+        (sharing.dataSets || []).forEach(function (set) {
+          var row = document.createElement("tr");
+          var name = document.createElement("td");
+          name.appendChild(text("code", set.title));
+          name.appendChild(text("small", set.description));
+          row.appendChild(name);
+          row.appendChild(
+            sharingCheckbox(
+              set.public,
+              function (checked) {
+                setSharing(set.id, { public: checked });
+              },
+              !publicEnabled,
+            ),
+          );
+          groups.forEach(function (group) {
+            var checked =
+              set.groups === "all" ||
+              (Array.isArray(set.groups) && set.groups.indexOf(group.id) >= 0);
+            row.appendChild(
+              sharingCheckbox(checked, function (value) {
+                var current =
+                  set.groups === "all"
+                    ? groups.map(function (entry) {
+                        return entry.id;
+                      })
+                    : set.groups.slice();
+                if (value && current.indexOf(group.id) < 0) {
+                  current.push(group.id);
+                }
+                if (!value) {
+                  current = current.filter(function (id) {
+                    return id !== group.id;
+                  });
+                }
+                setSharing(set.id, { groups: current });
+              }),
+            );
+          });
+          table.appendChild(row);
+        });
+
+        wrap.appendChild(table);
+        root.appendChild(wrap);
+        if (!groups.length) {
           root.appendChild(
-            identityRow(
-              "Elected relay",
-              status.electedPeer.selfId +
-                " (capacity " +
-                status.electedPeer.capacity +
-                ")",
+            text(
+              "p",
+              "No private groups yet. Create or join one to add group columns.",
             ),
           );
         }
-        (sharing.dataSets || []).forEach(function (set) {
-          var label = document.createElement("label");
-          label.className = "row";
-          var input = document.createElement("input");
-          input.type = "checkbox";
-          input.checked = !!set.public;
-          input.disabled = !(network && network.enabled);
-          input.onchange = function () {
-            setPublic(set.id, input.checked);
-          };
-          label.appendChild(input);
-          label.appendChild(text("code", set.title));
-          label.appendChild(text("span", set.description));
-          root.appendChild(label);
-        });
         root.appendChild(
           text(
             "p",
-            "Open membership. Changes are saved to the plugin configuration and apply immediately.",
+            "Check a group column to share that data set with that group. Public membership is open. Changes apply immediately.",
           ),
         );
       }
 
-      async function setPublic(dataSet, enabled) {
+      async function setConsent(consent) {
         try {
-          await call("/sharing", { dataSet: dataSet, public: enabled });
+          await call("/network/consent", { consent: consent });
+          say("", false);
+          return refresh();
+        } catch (error) {
+          say(String(error), true);
+          return refresh();
+        }
+      }
+
+      async function setSharing(dataSet, update) {
+        try {
+          await call("/sharing", Object.assign({ dataSet: dataSet }, update));
           say("", false);
           return refresh();
         } catch (error) {
@@ -404,8 +562,6 @@
             text(
               "span",
               group.role +
-                " · epoch " +
-                group.epoch +
                 " · " +
                 group.members +
                 " member(s)" +
@@ -415,22 +571,24 @@
                   : ""),
             ),
           );
-          row.appendChild(
-            button(
-              "Remove",
-              action(function () {
-                return removeMember(group.id);
-              }),
-            ),
-          );
-          row.appendChild(
-            button(
-              "Promote",
-              action(function () {
-                return promoteMember(group.id);
-              }),
-            ),
-          );
+          if (group.role === "owner" || group.role === "admin") {
+            row.appendChild(
+              button(
+                "Remove",
+                action(function () {
+                  return removeMember(group.id);
+                }),
+              ),
+            );
+            row.appendChild(
+              button(
+                "Promote",
+                action(function () {
+                  return promoteMember(group.id);
+                }),
+              ),
+            );
+          }
           row.appendChild(
             button(
               "Leave",
@@ -440,10 +598,47 @@
             ),
           );
           root.appendChild(row);
+
+          if (!group.removed && group.role !== "viewer") {
+            var rateRow = document.createElement("div");
+            rateRow.className = "row";
+            rateRow.appendChild(text("code", "Publish rate"));
+            var input = document.createElement("input");
+            input.type = "number";
+            input.min = "0.01";
+            input.max = String(group.rateCapHz);
+            input.step = "0.01";
+            input.value = String(group.publishRateHz);
+            rateRow.appendChild(input);
+            rateRow.appendChild(
+              text("span", "/ " + group.rateCapHz + " Hz maximum"),
+            );
+            rateRow.appendChild(
+              button(
+                "Set",
+                action(function () {
+                  return setGroupRate(group.id, Number(input.value));
+                }),
+              ),
+            );
+            if (group.role === "owner" || group.role === "admin") {
+              rateRow.appendChild(
+                button(
+                  "Set cap",
+                  action(function () {
+                    return setGroupRateCap(group.id);
+                  }),
+                ),
+              );
+            }
+            root.appendChild(rateRow);
+          }
         });
       }
 
       function renderRequests(requests) {
+        document.getElementById("requests-section").style.display =
+          requests.length ? "" : "none";
         clear("requests");
         var root = document.getElementById("requests");
         if (!requests.length) {
@@ -477,6 +672,8 @@
       }
 
       function renderProposals(proposals) {
+        document.getElementById("proposals-section").style.display =
+          proposals.length ? "" : "none";
         clear("proposals");
         var root = document.getElementById("proposals");
         if (!proposals.length) {
@@ -600,13 +797,16 @@
         await call("/groups/leave", { groupId: groupId });
       }
 
-      async function setThreshold() {
-        var groupId = prompt("Group id");
-        if (!groupId) return;
-        var threshold = Number(prompt("Required admin approvals", "1") || "1");
-        await call("/groups/threshold", {
+      async function setGroupRate(groupId, rateHz) {
+        await call("/groups/rate", { groupId: groupId, rateHz: rateHz });
+      }
+
+      async function setGroupRateCap(groupId) {
+        var value = prompt("Group publish rate cap (Hz)", "1");
+        if (value === null) return;
+        await call("/groups/rate-cap", {
           groupId: groupId,
-          threshold: threshold,
+          rateHz: Number(value),
         });
       }
 

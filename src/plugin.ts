@@ -9,6 +9,11 @@ import type {
   ServerAPI,
 } from "@signalk/server-api";
 import { AisTargetStore } from "./ais/store.js";
+import {
+  loadAdvancedConfig,
+  mergeSimpleConfig,
+  saveAdvancedConfig,
+} from "./advanced-config.js";
 import { buildAisRecords } from "./ais/publish.js";
 import {
   registerRoutes,
@@ -22,6 +27,7 @@ import {
   resolveConfig,
   schema,
   type Config,
+  type ConsentMode,
   type DataSetId,
   type NetworkConfig,
 } from "./config.js";
@@ -50,6 +56,18 @@ import { PeerDirectory } from "./live/directory.js";
 import type { LiveMessage } from "./live/message.js";
 import { SelfPublisher } from "./live/publisher.js";
 import { ALL_VESSELS_TOPIC, networkTopic } from "./live/topic.js";
+import {
+  decodePolicy,
+  defaultPolicy,
+  verifyPolicy,
+  type NetworkPolicy,
+  type SignedPolicy,
+} from "./policy/policy.js";
+import {
+  effectivePolicy,
+  operatorKeysFromConfig,
+  saveCachedPolicy,
+} from "./policy/operator.js";
 import { decodeClaim, encodeClaim } from "./security/claim.js";
 import { createClaimControl } from "./security/control.js";
 import { ClaimRegistry } from "./security/registry.js";
@@ -161,6 +179,8 @@ export default function createPlugin(app: ServerAPI): Plugin {
   let startedAt = 0;
   let running = false;
   let error: string | undefined;
+  let policy: NetworkPolicy = defaultPolicy();
+  let operatorKeys: string[] = [];
   let injected = 0;
   let unsubscribes: Array<() => void> = [];
   let tickTimer: ReturnType<typeof setInterval> | undefined;
@@ -169,9 +189,9 @@ export default function createPlugin(app: ServerAPI): Plugin {
   let lastStaticAt = 0;
   let lastClaimAt = 0;
   let lastCapabilityAt = 0;
-  let lastGroupSnapshotAt = 0;
-  let lastGroupValuesAt = 0;
-  let lastGroupStaticAt = 0;
+  const groupSnapshotAt = new Map<string, number>();
+  const groupValuesAt = new Map<string, number>();
+  const groupStaticAt = new Map<string, number>();
   let aisStore: AisTargetStore | undefined;
   let selfMmsi: number | undefined;
   let lastAisAt = 0;
@@ -185,8 +205,8 @@ export default function createPlugin(app: ServerAPI): Plugin {
     const now = Math.floor(Date.now() / 1000);
     const election = {
       now,
-      epochSeconds: Math.max(1, config.election.epochMinutes) * 60,
-      minUptimeSeconds: Math.max(0, config.election.minUptimeMinutes) * 60,
+      epochSeconds: Math.max(1, policy.election.epochMinutes) * 60,
+      minUptimeSeconds: Math.max(0, policy.election.minUptimeMinutes) * 60,
     };
     const eligible = directory?.eligible(election) ?? [];
     const elected =
@@ -197,6 +217,11 @@ export default function createPlugin(app: ServerAPI): Plugin {
     return {
       started: running,
       version: PLUGIN_VERSION,
+      policy: {
+        version: policy.version,
+        issuedAt: policy.issuedAt,
+        operator: operatorKeys[0],
+      },
       identity: identity
         ? {
             fingerprint: identity.fingerprint,
@@ -391,23 +416,18 @@ export default function createPlugin(app: ServerAPI): Plugin {
     };
   }
 
-  function publishGroups(
-    now: number,
-    interval: number,
-    valuesChanged: boolean,
-  ): void {
+  function publishGroups(now: number, valuesChanged: boolean): void {
     const manager = groups;
     if (!manager) return;
     const sharing = config.sharing;
     const timestamp = Math.floor(now / 1000);
-    const snapshotDue = now - lastGroupSnapshotAt >= interval;
-    const valuesDue =
-      valuesChanged || now - lastGroupValuesAt >= VALUES_INTERVAL_MS;
-    const staticDue = now - lastGroupStaticAt >= STATIC_INTERVAL_MS;
 
     for (const info of manager.list()) {
       if (info.removed || !manager.canPublish(info.id)) continue;
-      if (snapshotDue) {
+      const rate = Math.min(info.publishRateHz, info.rateCapHz);
+      const interval = 1000 / Math.max(rate, 0.001);
+      const lastSnapshot = groupSnapshotAt.get(info.id) ?? 0;
+      if (now - lastSnapshot >= interval) {
         const includePosition = sharesWith(sharing.position.groups, info.id);
         const includeNavigation = sharesWith(
           sharing.navigation.groups,
@@ -423,32 +443,41 @@ export default function createPlugin(app: ServerAPI): Plugin {
               info.id,
               encodeEnvelope("snapshot", encodeSnapshot(snapshot)),
             );
+            groupSnapshotAt.set(info.id, now);
           }
         }
       }
-      if (valuesDue) {
+
+      const lastValues = groupValuesAt.get(info.id) ?? 0;
+      if (
+        (valuesChanged && now - lastValues >= interval) ||
+        now - lastValues >= VALUES_INTERVAL_MS
+      ) {
         const values = publisher?.buildValues(valuesFilter(info.id));
         if (values) {
           manager.enqueueData(
             info.id,
             encodeEnvelope("values", encodeValues(values)),
           );
+          groupValuesAt.set(info.id, now);
         }
       }
-      if (staticDue && sharesWith(sharing.identity.groups, info.id)) {
+
+      const lastStatic = groupStaticAt.get(info.id) ?? 0;
+      if (
+        now - lastStatic >= STATIC_INTERVAL_MS &&
+        sharesWith(sharing.identity.groups, info.id)
+      ) {
         const staticInfo = publisher?.buildStatic();
         if (staticInfo) {
           manager.enqueueData(
             info.id,
             encodeEnvelope("static", encodeStatic(staticInfo)),
           );
+          groupStaticAt.set(info.id, now);
         }
       }
     }
-
-    if (snapshotDue) lastGroupSnapshotAt = now;
-    if (valuesDue) lastGroupValuesAt = now;
-    if (staticDue) lastGroupStaticAt = now;
   }
 
   function canPublishAis(): boolean {
@@ -461,12 +490,19 @@ export default function createPlugin(app: ServerAPI): Plugin {
 
   function publishAis(now: number): void {
     if (!aisStore || !publisher || !canPublishAis()) return;
-    const rate = Math.max(config.ais.rateHz ?? 0.02, 0.001);
+    const rate = Math.max(
+      Math.min(config.ais.rateHz ?? 0.02, policy.ais.maxRateHz),
+      0.001,
+    );
     if (now - lastAisAt < 1000 / rate) return;
 
+    const maxTargets = Math.max(
+      0,
+      Math.round(Math.min(config.ais.maxTargets ?? 100, policy.ais.maxTargets)),
+    );
     const targets = aisStore.nearest(
       publisher.currentPosition,
-      Math.max(0, Math.round(config.ais.maxTargets ?? 100)),
+      maxTargets,
       Math.floor(now / 1000),
       AIS_MAX_AGE_SECONDS,
     );
@@ -500,18 +536,22 @@ export default function createPlugin(app: ServerAPI): Plugin {
     const now = Date.now();
     const nowSeconds = Math.floor(now / 1000);
     const sharing = config.sharing;
-    const rate = publisher.underway
-      ? (network?.rateHzUnderway ?? 0.05)
-      : (network?.rateHzMoored ?? 0.01);
+    const maxRate = publisher.underway
+      ? policy.rates.maxSnapshotHzUnderway
+      : policy.rates.maxSnapshotHzMoored;
+    const localRate = publisher.underway
+      ? network?.rateHzUnderway
+      : network?.rateHzMoored;
+    const rate = Math.min(localRate ?? maxRate, maxRate);
     const interval = 1000 / Math.max(rate, 0.001);
 
     if (client) {
       const elected = config.election.enabled
         ? directory?.elected({
             now: nowSeconds,
-            epochSeconds: Math.max(1, config.election.epochMinutes) * 60,
+            epochSeconds: Math.max(1, policy.election.epochMinutes) * 60,
             minUptimeSeconds:
-              Math.max(0, config.election.minUptimeMinutes) * 60,
+              Math.max(0, policy.election.minUptimeMinutes) * 60,
           })
         : undefined;
       const ownKey = identity?.publicKeyRaw.toString("hex");
@@ -559,7 +599,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
       }
     }
 
-    publishGroups(now, interval, valuesChanged);
+    publishGroups(now, valuesChanged);
 
     if (now - lastClaimAt >= STATIC_INTERVAL_MS) publishClaim();
     if (now - lastCapabilityAt >= CAPABILITY_INTERVAL_MS) publishCapability();
@@ -593,43 +633,95 @@ export default function createPlugin(app: ServerAPI): Plugin {
         title: set.title,
         description: set.description,
         public: config.sharing[set.id].public,
+        groups: config.sharing[set.id].groups,
       })),
     };
   }
 
-  async function setPublicSharing(
+  async function setSharing(
     dataSet: string,
-    publicValue: boolean,
+    update: { public?: boolean; groups?: "all" | string[] },
   ): Promise<{ ok: boolean; error?: string }> {
     const set = DATA_SETS.find((entry) => entry.id === dataSet);
     if (!set) return { ok: false, error: "unknown data set" };
+    if (update.groups !== undefined && update.groups !== "all") {
+      const active = new Set(
+        (groups?.list() ?? [])
+          .filter((info) => !info.removed)
+          .map((info) => info.id),
+      );
+      const unknown = update.groups.find((id) => !active.has(id));
+      if (unknown) return { ok: false, error: `unknown group ${unknown}` };
+    }
+    const previous = { ...config.sharing[set.id] };
     const audience = config.sharing[set.id];
-    const previous = audience.public;
-    audience.public = publicValue;
-    return new Promise((resolve) => {
-      app.savePluginOptions(config, (err) => {
-        if (err) {
-          audience.public = previous;
-          resolve({ ok: false, error: `save failed: ${err.message}` });
-        } else {
-          resolve({ ok: true });
-        }
-      });
-    });
+    if (update.public !== undefined) audience.public = update.public;
+    if (update.groups !== undefined) audience.groups = update.groups;
+    try {
+      saveAdvancedConfig(app.getDataDirPath(), config);
+      return { ok: true };
+    } catch (saveError) {
+      config.sharing[set.id] = previous;
+      return {
+        ok: false,
+        error: `save failed: ${String(saveError)}`,
+      };
+    }
+  }
+
+  async function setConsent(
+    consent: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const modes: ConsentMode[] = [
+      "receive-only",
+      "underway-gated",
+      "opt-out",
+      "coarse-position",
+    ];
+    if (!(modes as string[]).includes(consent)) {
+      return { ok: false, error: "invalid consent mode" };
+    }
+    const network = publicNetwork();
+    if (!network) return { ok: false, error: "no public network" };
+    const previous = network.consent;
+    network.consent = consent as ConsentMode;
+    try {
+      saveAdvancedConfig(app.getDataDirPath(), config);
+      return { ok: true };
+    } catch (saveError) {
+      network.consent = previous;
+      return {
+        ok: false,
+        error: `save failed: ${String(saveError)}`,
+      };
+    }
   }
 
   const control: P2PControl = {
     status,
     sharing: sharingInfo,
-    setPublicSharing,
+    setSharing,
+    setConsent,
     ...claimControl,
     ...groupControl,
   };
 
-  function handleMessage(message: LiveMessage): void {
-    if (!config.inject.enabled) return;
-    if (message.selfId === selfId) return;
+  function applyIncomingPolicy(signed: SignedPolicy): void {
+    if (signed.policy.version <= policy.version) return;
+    if (!verifyPolicy(signed, operatorKeys, ALL_VESSELS_TOPIC)) {
+      app.debug("P2P ignored unsigned or invalid network policy");
+      return;
+    }
+    policy = signed.policy;
+    try {
+      saveCachedPolicy(app.getDataDirPath(), signed);
+    } catch (saveError) {
+      app.debug(`P2P could not cache network policy: ${String(saveError)}`);
+    }
+    app.setPluginStatus(`P2P network policy v${policy.version} applied`);
+  }
 
+  function handleMessage(message: LiveMessage): void {
     for (const record of message.records) {
       let envelope;
       try {
@@ -638,6 +730,17 @@ export default function createPlugin(app: ServerAPI): Plugin {
         app.debug(`P2P dropped malformed envelope: ${String(decodeError)}`);
         continue;
       }
+
+      if (envelope.type === "policy") {
+        try {
+          applyIncomingPolicy(decodePolicy(envelope.payload));
+        } catch (policyError) {
+          app.debug(`P2P dropped malformed policy: ${String(policyError)}`);
+        }
+        continue;
+      }
+
+      if (!config.inject.enabled || message.selfId === selfId) continue;
 
       if (envelope.type === "capability") {
         try {
@@ -829,17 +932,28 @@ export default function createPlugin(app: ServerAPI): Plugin {
     },
 
     async start(startConfig?: Partial<Config>) {
-      config = resolveConfig(startConfig);
+      const dataDir = app.getDataDirPath();
+      const advanced = loadAdvancedConfig(dataDir, startConfig ?? {});
+      config = resolveConfig(mergeSimpleConfig(advanced, startConfig ?? {}));
+      try {
+        saveAdvancedConfig(dataDir, config);
+      } catch (saveError) {
+        app.debug(`P2P could not save advanced config: ${String(saveError)}`);
+      }
       selfId = app.selfId;
       selfMmsi = selfMmsiFromId(selfId);
 
       try {
-        identity = await loadOrCreateIdentity(app.getDataDirPath());
+        identity = await loadOrCreateIdentity(dataDir);
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
         app.setPluginError(`P2P failed to start: ${error}`);
         throw cause;
       }
+
+      operatorKeys = operatorKeysFromConfig(config.policy?.operatorKeys);
+      policy = effectivePolicy(dataDir, operatorKeys);
+      app.debug(`P2P network policy v${policy.version}`);
 
       registry = new ClaimRegistry({
         path: join(app.getDataDirPath(), "claims.json"),

@@ -237,7 +237,8 @@ A group that is removed or left is dropped from every data set's group list.
 
 ## 4. Consent modes (public audience)
 
-The public network is joined and transmitting by default, but "transmitting" is
+The public network is joined by default but **receive-only** until the owner opts
+in; "transmitting" is
 configurable. The mode applies to position-bearing data sets (Position and Depth)
 when they are shared publicly.
 
@@ -248,7 +249,7 @@ when they are shared publicly.
 | `receive-only`      | Join and ingest, but publish nothing of your own.                                                                               | Maximum privacy; no contribution.           |
 | `coarse-position`   | Publish position rounded to a grid (default 5 km) instead of the exact fix.                                                     | Approximate only; not anonymity.            |
 
-The mode is per network. Groups use the same modes and default to `opt-out` (a
+The mode is per network. Groups use the same modes and default to `receive-only` (a
 group is already a trusted audience). A boat can be `opt-out` to its club and
 `underway-gated` to the world.
 
@@ -311,7 +312,7 @@ The AIS data set uses the same three-way control as the others:
 - **Share with groups** — publish into the selected groups;
 - **Don't share** — no AIS over P2P.
 
-Defaults: public **on**, groups **off**.
+Defaults: public **off**, groups **off**; AIS is receive-only/private by default.
 
 ### 6.2 Direction
 

@@ -4,8 +4,8 @@
 
 Two classes of network, both live at once:
 
-- **`all-vessels`** — one global public network, joined and transmitting by
-  default, opt-out; implemented as adaptive geographic shards.
+- **`all-vessels`** — one global public network, joined with a receive-only
+  default; transmission is opt-in; implemented as adaptive geographic shards.
 - **Groups** — any number of private, encrypted, invite-only networks with roles,
   a signed roster, and key rotation.
 
@@ -39,12 +39,16 @@ according to that network's policy, and ingests what each network carries.
   `H("signalk-p2p/all-vessels/v1")`, so every instance agrees without coordination.
 - **Open join.** No membership, no invite, no encryption. Identity is a
   pseudonymous Ed25519 key.
-- **Default on.** The plugin joins and transmits unless the operator opts out.
+- **Default on, receive-only.** The plugin joins immediately but publishes
+  nothing until the owner chooses a consent mode. `receive-only`,
+  `underway-gated`, `coarse-position` and `opt-out` are available.
 - **Audiences** follow [`shared-data.md`](shared-data.md): each data set is shared
-  publicly, with selected groups, or not at all. Consent (`opt-out` by default,
-  plus `underway-gated`, `receive-only`, `coarse-position`) and rates are per
-  network.
-- **AIS** defaults to send-and-receive publicly, capped and sampled.
+  publicly, with selected groups, or not at all, using the webapp matrix.
+- **AIS** defaults to receive-only/private, capped and sampled by policy.
+- **Topology and rates are centrally controlled.** Shard sizes, look-ahead,
+  split/merge thresholds, election epoch/min-uptime, public snapshot rate caps
+  and AIS caps come from a signed, versioned `NetworkPolicy`; clients cannot
+  override them. See §2.1.
 - **No fixed relays.** The mesh elects a relay/aggregator per shard from
   reachable peers; bootstrap peers are optional and replaceable.
 - **Write authorization** is enforced by a replicated claim registry: each context
@@ -54,6 +58,30 @@ according to that network's policy, and ingests what each network carries.
 
 The user-visible model is one network. Under the hood it is a set of geographic
 shards (§3), so no instance replicates the whole world.
+
+### 2.1 Network policy
+
+A small signed policy carries the network-wide settings:
+
+```
+NetworkPolicy {
+  version, issuedAt, notBefore?, notAfter?
+  topic, protocol
+  sharding { maxVesselsPerShard, maxVesselsPerInstance, lookAheadKm,
+             splitSettleMinutes, mergeSettleMinutes, mergeBelowRatio,
+             boundaryHysteresisMeters }
+  election { epochMinutes, minUptimeMinutes }
+  rates    { maxSnapshotHzUnderway, maxSnapshotHzMoored }
+  ais      { maxTargets, maxRateHz }
+}
+```
+
+It is signed by the network operator. A signed default ships with the plugin; a
+newer signed policy received over the mesh overrides it and is cached. Clients
+verify the signature against pinned operator keys, reject rollback and invalid
+values, and fall back to the shipped default if no live policy is available.
+The operator's private key never goes to a relay; the standalone peer can
+republish a signed policy file.
 
 Write authorization, group approval and the public claim registry are specified in
 [`security.md`](security.md).

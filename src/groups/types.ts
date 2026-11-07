@@ -20,10 +20,16 @@ export interface WrappedKey {
   sealedKey: string;
 }
 
+export const MIN_GROUP_RATE_HZ = 0.01;
+export const MAX_GROUP_RATE_HZ = 10;
+export const DEFAULT_GROUP_RATE_CAP_HZ = 0.05;
+
 export interface GroupRoster {
   /** Hex-encoded 32-byte group id. */
   groupId: string;
   name: string;
+  /** Maximum snapshot publish rate for members, set by the group admin. */
+  rateCapHz?: number;
   version: number;
   epoch: number;
   /** Distinct admin approvals required before this roster is adopted. */
@@ -69,6 +75,8 @@ export interface GroupState {
   role: GroupRole;
   /** This instance forwards encrypted group data. */
   relay?: boolean;
+  /** Local member preference, always <= the roster rate cap. */
+  publishRateHz?: number;
   /** Invite nonces already used by this admin. */
   usedInvites?: string[];
   removed?: boolean;
@@ -112,6 +120,30 @@ export interface GroupInfo {
   members: number;
   removed: boolean;
   pendingProposals: number;
+  rateCapHz: number;
+  publishRateHz: number;
+}
+
+export function groupRateCap(roster: GroupRoster): number {
+  const value = roster.rateCapHz;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_GROUP_RATE_CAP_HZ;
+  }
+  return Math.min(Math.max(value, MIN_GROUP_RATE_HZ), MAX_GROUP_RATE_HZ);
+}
+
+export function groupPublishRate(state: GroupState): number {
+  const cap = groupRateCap(state.roster);
+  const value = state.publishRateHz;
+  if (typeof value !== "number" || !Number.isFinite(value)) return cap;
+  return Math.min(Math.max(value, MIN_GROUP_RATE_HZ), cap);
+}
+
+export function clampGroupRate(value: number): number {
+  if (!Number.isFinite(value)) {
+    throw new Error("rate must be a number");
+  }
+  return Math.min(Math.max(value, MIN_GROUP_RATE_HZ), MAX_GROUP_RATE_HZ);
 }
 
 export interface ProposalInfo {

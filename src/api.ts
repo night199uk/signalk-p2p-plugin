@@ -8,6 +8,11 @@ import type { ConsentMode, DataSetId } from "./config.js";
 export interface P2PStatus {
   started: boolean;
   version: string;
+  policy?: {
+    version: number;
+    issuedAt: number;
+    operator?: string;
+  };
   identity?: {
     fingerprint: string;
     publicKey: string;
@@ -41,16 +46,18 @@ export interface SharingInfo {
     title: string;
     description: string;
     public: boolean;
+    groups: "all" | string[];
   }>;
 }
 
 export interface P2PControl extends ClaimControl, GroupControl {
   status(): P2PStatus;
   sharing(): SharingInfo;
-  setPublicSharing(
+  setSharing(
     dataSet: string,
-    publicValue: boolean,
+    update: { public?: boolean; groups?: "all" | string[] },
   ): Promise<{ ok: boolean; error?: string }>;
+  setConsent(consent: string): Promise<{ ok: boolean; error?: string }>;
 }
 
 function sendGroup(res: Response, result: GroupResult): void {
@@ -87,16 +94,50 @@ export function registerRoutes(
   });
 
   router.post("/sharing", (req: Request, res: Response) => {
-    const body = (req.body ?? {}) as { dataSet?: unknown; public?: unknown };
-    if (typeof body.dataSet !== "string" || typeof body.public !== "boolean") {
+    const body = (req.body ?? {}) as {
+      dataSet?: unknown;
+      public?: unknown;
+      groups?: unknown;
+    };
+    const publicValue =
+      typeof body.public === "boolean" ? body.public : undefined;
+    let groups: "all" | string[] | undefined;
+    if (body.groups === "all") {
+      groups = "all";
+    } else if (Array.isArray(body.groups)) {
+      if (body.groups.some((id) => typeof id !== "string")) {
+        res.status(400).json({ ok: false, error: "groups must be strings" });
+        return;
+      }
+      groups = body.groups as string[];
+    } else if (body.groups !== undefined) {
       res
         .status(400)
-        .json({ ok: false, error: "dataSet and public are required" });
+        .json({ ok: false, error: "groups must be 'all' or an array" });
+      return;
+    }
+    if (
+      typeof body.dataSet !== "string" ||
+      (publicValue === undefined && groups === undefined)
+    ) {
+      res.status(400).json({
+        ok: false,
+        error: "dataSet and a sharing change are required",
+      });
       return;
     }
     void control
-      .setPublicSharing(body.dataSet, body.public)
+      .setSharing(body.dataSet, { public: publicValue, groups })
       .then((result) => sendGroup(res, result));
+  });
+
+  router.post("/network/consent", (req: Request, res: Response) => {
+    const consent = (req.body ?? {}).consent;
+    if (typeof consent !== "string") {
+      res.status(400).json({ ok: false, error: "consent is required" });
+      return;
+    }
+    void control.setConsent(consent).then((result) => sendGroup(res, result));
   });
 
   router.get("/claims", (_req: Request, res: Response) => {
@@ -152,6 +193,18 @@ export function registerRoutes(
   router.post("/groups/members/promote", (req: Request, res: Response) => {
     void control
       .promoteMember(req.body ?? {})
+      .then((result) => sendGroup(res, result));
+  });
+
+  router.post("/groups/rate", (req: Request, res: Response) => {
+    void control
+      .setRate(req.body ?? {})
+      .then((result) => sendGroup(res, result));
+  });
+
+  router.post("/groups/rate-cap", (req: Request, res: Response) => {
+    void control
+      .setRateCap(req.body ?? {})
       .then((result) => sendGroup(res, result));
   });
 

@@ -62,7 +62,8 @@ npx signalk-p2p-peer \
   --topic signalk-p2p/all-vessels/v1 \
   --batch-interval 2000 \
   --history 10 \
-  --port 49737
+  --port 49737 \
+  --policy /etc/signalk-p2p/policy.json
 ```
 
 During development:
@@ -81,9 +82,13 @@ npm run peer:start     # compiled dist/peer/cli.js
   "batchIntervalMs": 2000,
   "maxBatchBytes": 65536,
   "historyBatches": 10,
-  "port": 49737
+  "port": 49737,
+  "policyFile": "/etc/signalk-p2p/policy.json"
 }
 ```
+
+`policyFile` is optional. When set, the peer verifies and republishes the signed
+network policy every five minutes; it never needs the operator private key.
 
 ```bash
 npx signalk-p2p-peer --config /etc/signalk-p2p/peer.json

@@ -1,0 +1,30 @@
+{
+  "policy": {
+    "version": 2,
+    "topic": "signalk-p2p/all-vessels/v1",
+    "protocol": 1,
+    "issuedAt": 1794023623,
+    "sharding": {
+      "maxVesselsPerShard": 500,
+      "maxVesselsPerInstance": 1000,
+      "lookAheadKm": 50,
+      "splitSettleMinutes": 10,
+      "mergeSettleMinutes": 60,
+      "mergeBelowRatio": 0.25,
+      "boundaryHysteresisMeters": 1000
+    },
+    "election": {
+      "epochMinutes": 10,
+      "minUptimeMinutes": 10
+    },
+    "rates": {
+      "maxSnapshotHzUnderway": 0.05,
+      "maxSnapshotHzMoored": 0.01
+    },
+    "ais": {
+      "maxTargets": 100,
+      "maxRateHz": 0.02
+    }
+  },
+  "signature": "VKtZkIvKsyt3RwQWwvF1K6GP8Oh/tODyERYMAVWPMjH8UgN0TztN8LOhY/KpGpfBo3OTO0ktQf04zVPZhuUcDw=="
+}

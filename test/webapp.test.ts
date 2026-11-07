@@ -11,9 +11,14 @@ describe("admin webapp", () => {
     expect(html).toContain("Signal K P2P");
     expect(html).toContain("/plugins/signalk-p2p-plugin");
     expect(html).toContain("renderIdentity(");
-    expect(html).toContain("renderPublicNetwork(");
+    expect(html).toContain("renderSharing(");
     expect(html).toContain('call("/sharing")');
-    expect(html).toContain("setPublic(");
+    expect(html).toContain("setSharing(");
+    expect(html).toContain("sharingCheckbox(");
+    expect(html).toContain("setConsent(");
+    expect(html).toContain("setGroupRate(");
+    expect(html).toContain("setGroupRateCap(");
+    expect(html).toContain("<summary>Advanced</summary>");
   });
 
   it("is declared as a webapp and ships the public directory", () => {

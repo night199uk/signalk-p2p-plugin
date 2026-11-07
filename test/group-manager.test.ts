@@ -72,6 +72,20 @@ function joinRequest(
 }
 
 describe("GroupManager", () => {
+  it("caps member publish rates and clamps local rates", async () => {
+    const owner = await manager(ownerSelfId);
+    const group = await owner.manager.createGroup("Rate Group");
+    expect(group.rateCapHz).toBe(0.05);
+    expect(group.publishRateHz).toBe(0.05);
+
+    const capped = await owner.manager.setRateCap(group.id, 2);
+    expect(capped.rateCapHz).toBe(2);
+    const clamped = await owner.manager.setPublishRate(group.id, 5);
+    expect(clamped.publishRateHz).toBe(2);
+    const local = await owner.manager.setPublishRate(group.id, 1.5);
+    expect(local.publishRateHz).toBe(1.5);
+  });
+
   it("creates a group, admits a member, and rekeys on removal", async () => {
     const owner = await manager(ownerSelfId);
     const joiner = await manager(joinerSelfId);

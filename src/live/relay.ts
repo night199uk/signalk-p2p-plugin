@@ -4,6 +4,7 @@ import Hyperswarm from "hyperswarm";
 import { decodeEnvelope, encodeEnvelope } from "../data/envelope.js";
 import type { Identity } from "../identity.js";
 import { decodeCapability, encodeCapability } from "./capability.js";
+import { encodePolicy, type SignedPolicy } from "../policy/policy.js";
 import { PeerDirectory } from "./directory.js";
 import { decodeLiveMessages, encodeLiveMessage } from "./message.js";
 import {
@@ -334,6 +335,20 @@ export class RelayHub {
     } catch (error) {
       this.log.error(`relay: capability encode failed: ${String(error)}`);
     }
+  }
+
+  /** Publish a signed network policy to connected peers. */
+  publishPolicy(signed: SignedPolicy): void {
+    const message = encodeLiveMessage(
+      {
+        sourceKey: this.options.identity.publicKeyRaw,
+        selfId: this.peerSelfId,
+        records: [encodeEnvelope("policy", encodePolicy(signed))],
+      },
+      { sign: (data) => this.options.identity.sign(data) },
+    );
+    this.core.broadcast(message);
+    this.log.info(`published network policy v${signed.policy.version}`);
   }
 
   private handleData(data: Buffer, _peerId: string): void {

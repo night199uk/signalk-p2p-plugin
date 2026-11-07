@@ -39,6 +39,11 @@ export interface GroupControl {
     role?: unknown;
   }): Promise<GroupResult>;
   leaveGroup(input: { groupId?: unknown }): Promise<GroupResult>;
+  setRate(input: { groupId?: unknown; rateHz?: unknown }): Promise<GroupResult>;
+  setRateCap(input: {
+    groupId?: unknown;
+    rateHz?: unknown;
+  }): Promise<GroupResult>;
   groupProposals(groupId?: string): ProposalInfo[];
   approveProposal(input: {
     groupId?: unknown;
@@ -76,6 +81,13 @@ function roleField(value: unknown): GroupRole | undefined {
     throw new Error("role must be owner, admin, member or viewer");
   }
   return value as GroupRole;
+}
+
+function rateField(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("rateHz must be a number");
+  }
+  return value;
 }
 
 function numberField(value: unknown): number | undefined {
@@ -208,6 +220,36 @@ export function createGroupControl(
         return {
           ok: true,
           group: await requireManager().setAdminThreshold(groupId, threshold),
+        };
+      } catch (error) {
+        return failure(error);
+      }
+    },
+
+    setRate: async (input) => {
+      try {
+        const groupId = stringField(input.groupId, "groupId");
+        return {
+          ok: true,
+          group: await requireManager().setPublishRate(
+            groupId,
+            rateField(input.rateHz),
+          ),
+        };
+      } catch (error) {
+        return failure(error);
+      }
+    },
+
+    setRateCap: async (input) => {
+      try {
+        const groupId = stringField(input.groupId, "groupId");
+        return {
+          ok: true,
+          group: await requireManager().setRateCap(
+            groupId,
+            rateField(input.rateHz),
+          ),
         };
       } catch (error) {
         return failure(error);

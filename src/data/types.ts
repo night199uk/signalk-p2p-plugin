@@ -114,6 +114,7 @@ export type RecordType =
   | "ais-static"
   | "claim"
   | "capability"
+  | "policy"
   | "group-roster"
   | "group-join"
   | "group-roster-request";
