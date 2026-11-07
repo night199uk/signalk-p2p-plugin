@@ -214,7 +214,7 @@ These hold everywhere. Code that violates them is a bug, not a trade-off.
   array (consent and rates), sharding limits, bootstrap peers, election, and
   injection/history options.
 - **Status:** `app.setPluginStatus` / `app.setPluginError` plus a small plugin
-  router (`/plugins/signalk-p2p/...`) for peers, shards, groups and diagnostics.
+  router (`/plugins/signalk-p2p-plugin/...`) for peers, shards, groups and diagnostics.
 
 ---
 

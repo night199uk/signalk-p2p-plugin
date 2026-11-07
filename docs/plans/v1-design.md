@@ -224,7 +224,7 @@ can render it. Required choices:
 - public claim status (unverified/attested) and the attestor set;
 - any identity/MMSI conflict or rejected write.
 
-Admin/plugin routes (under `/plugins/signalk-p2p/`):
+Admin/plugin routes (under `/plugins/signalk-p2p-plugin/`):
 
 | Route          | Purpose                                |
 | -------------- | -------------------------------------- |

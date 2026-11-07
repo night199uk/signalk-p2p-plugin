@@ -15,6 +15,7 @@ afterEach(async () => {
 describe("plugin routes", () => {
   it("serves status, identity, claims and attest requests", async () => {
     const attests: unknown[] = [];
+    const shares: Array<[string, boolean]> = [];
     const control: P2PControl = {
       status: () => ({
         started: true,
@@ -31,6 +32,11 @@ describe("plugin routes", () => {
         isAttestor: true,
       }),
       claims: () => [],
+      sharing: () => ({ dataSets: [] }),
+      setPublicSharing: async (dataSet, publicValue) => {
+        shares.push([dataSet, publicValue]);
+        return { ok: true };
+      },
       attest: (input) => {
         attests.push(input);
         return { ok: true };
@@ -70,6 +76,17 @@ describe("plugin routes", () => {
     const claims = await fetch(`${base}/claims`);
     expect(await claims.json()).toEqual({ claims: [] });
 
+    const sharing = await fetch(`${base}/sharing`);
+    expect(await sharing.json()).toEqual({ dataSets: [] });
+
+    const setSharing = await fetch(`${base}/sharing`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dataSet: "position", public: false }),
+    });
+    expect(setSharing.status).toBe(200);
+    expect(shares).toEqual([["position", false]]);
+
     const attest = await fetch(`${base}/claims/attest`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -92,6 +109,8 @@ describe("plugin routes", () => {
       }),
       identity: () => undefined,
       claims: () => [],
+      sharing: () => ({ dataSets: [] }),
+      setPublicSharing: async () => ({ ok: true }),
       attest: () => ({ ok: false, error: "not an attestor" }),
       revoke: () => ({ ok: false, error: "not an attestor" }),
     };

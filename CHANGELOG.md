@@ -1,9 +1,25 @@
 # Changelog
 
+## 0.3.0 — 2026-11-06
+
+- Add a Public network card to the webapp with status, peers/elected relay and
+  per-data-set public sharing toggles. Toggles persist to the plugin
+  configuration and apply live.
+
+## 0.2.2 — 2026-11-06
+
+- Render the identity/status panel as readable fields instead of a JSON blob.
+- Report the package version at runtime; the status was hard-coded to 0.1.0.
+
+## 0.2.1 — 2026-11-06
+
+- Fix the webapp API base to the actual plugin route
+  (`/plugins/signalk-p2p-plugin`), which was returning HTTP 404.
+
 ## 0.2.0 — 2026-11-02
 
 - The admin interface is now a Signal K webapp, listed under Webapps while the
-  plugin is enabled. The admin-gated `/plugins/signalk-p2p/admin` route remains.
+  plugin is enabled. The admin-gated `/plugins/signalk-p2p-plugin/admin` route remains.
 
 ## 0.1.1 — 2026-11-02
 

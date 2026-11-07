@@ -24,9 +24,11 @@ joined by default, plus any number of private, encrypted groups.
   vessel context, so a peer can never overwrite another vessel's data.
 - Relay through elected peers with no fixed relays, plus an optional standalone
   Node.js peer for a VPS bootstrap when most boats are behind CGNAT.
-- An admin webapp for claims, groups, join requests and proposals. It appears
-  under **Webapps** while the plugin is enabled, and is also served at
-  `/plugins/signalk-p2p/admin` (admin login required).
+- An admin webapp for claims, groups, join requests and proposals. The Groups
+  view includes a Public network card with status, peers/elected relay and
+  per-data-set public sharing toggles. It appears under **Webapps** while the
+  plugin is enabled, and is also served at
+  `/plugins/signalk-p2p-plugin/admin` (admin login required).
 
 ## Install
 

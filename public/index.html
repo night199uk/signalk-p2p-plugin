@@ -20,6 +20,26 @@
         border-bottom: 1px solid #27405f;
         padding-bottom: 0.25rem;
       }
+      h3 {
+        margin: 1rem 0 0.35rem;
+        font-size: 0.95rem;
+        color: #9fb3c8;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .network-card {
+        background: #101f38;
+        border: 1px solid #27405f;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin: 0.75rem 0 1rem;
+      }
+      .network-card .row:last-child {
+        border-bottom: 0;
+      }
+      .network-card input[type="checkbox"] {
+        accent-color: #0fb9e9;
+      }
       section {
         margin: 1.25rem 0;
       }
@@ -85,7 +105,7 @@
 
     <section>
       <h2>Identity</h2>
-      <pre id="identity">loading…</pre>
+      <div id="identity">loading…</div>
     </section>
 
     <section>
@@ -94,7 +114,9 @@
     </section>
 
     <section>
-      <h2>Groups</h2>
+      <h2>Groups &amp; networks</h2>
+      <div id="public-network"></div>
+      <h3>Private groups</h3>
       <div id="groups"></div>
       <div class="actions">
         <button onclick="createGroup()">Create group</button>
@@ -119,7 +141,7 @@
     </section>
 
     <script>
-      var base = "/plugins/signalk-p2p";
+      var base = "/plugins/signalk-p2p-plugin";
 
       function clear(id) {
         var node = document.getElementById(id);
@@ -187,16 +209,142 @@
           call("/groups"),
           call("/groups/requests"),
           call("/groups/proposals"),
+          call("/sharing"),
         ]);
-        document.getElementById("identity").textContent = JSON.stringify(
-          { status: results[0], identity: results[1] },
-          null,
-          2,
-        );
+        renderIdentity(results[0], results[1]);
+        renderPublicNetwork(results[0], results[6]);
         renderClaims(results[2].claims || []);
         renderGroups(results[3].groups || []);
         renderRequests(results[4].requests || []);
         renderProposals(results[5].proposals || []);
+      }
+
+      function identityRow(label, value) {
+        var row = document.createElement("div");
+        row.className = "row";
+        row.appendChild(text("code", label));
+        row.appendChild(
+          text(
+            "span",
+            value === undefined || value === null ? "—" : String(value),
+          ),
+        );
+        return row;
+      }
+
+      function renderIdentity(status, identity) {
+        clear("identity");
+        var root = document.getElementById("identity");
+        identity = identity || {};
+        status = status || {};
+        root.appendChild(identityRow("Fingerprint", identity.fingerprint));
+        root.appendChild(identityRow("Public key", identity.publicKey));
+        root.appendChild(
+          identityRow("Attestor", identity.isAttestor ? "yes" : "no"),
+        );
+        root.appendChild(text("h3", "Status"));
+        root.appendChild(identityRow("Version", status.version));
+        root.appendChild(identityRow("Started", status.started ? "yes" : "no"));
+        root.appendChild(identityRow("Peers", status.peers));
+        root.appendChild(identityRow("Injected vessels", status.injected));
+        root.appendChild(identityRow("Claims", status.claims));
+        root.appendChild(identityRow("Groups", status.groups));
+        root.appendChild(identityRow("Eligible peers", status.eligiblePeers));
+        if (status.electedPeer) {
+          root.appendChild(
+            identityRow(
+              "Elected peer",
+              status.electedPeer.selfId +
+                " (capacity " +
+                status.electedPeer.capacity +
+                ")",
+            ),
+          );
+        }
+        (status.networks || []).forEach(function (network) {
+          root.appendChild(
+            identityRow(
+              "Network",
+              network.id +
+                " · " +
+                network.kind +
+                " · " +
+                (network.enabled ? "enabled" : "disabled"),
+            ),
+          );
+        });
+        if (status.error) {
+          root.appendChild(identityRow("Error", status.error));
+        }
+      }
+
+      function renderPublicNetwork(status, sharing) {
+        clear("public-network");
+        var root = document.getElementById("public-network");
+        root.className = "network-card";
+        status = status || {};
+        sharing = sharing || {};
+        var network = sharing.network;
+        root.appendChild(
+          identityRow(
+            "Public network",
+            network ? network.id : "not configured",
+          ),
+        );
+        if (network) {
+          root.appendChild(
+            identityRow(
+              "Status",
+              (network.enabled ? "enabled" : "disabled") +
+                " · " +
+                (network.consent || "opt-out"),
+            ),
+          );
+        }
+        root.appendChild(identityRow("Peers", status.peers));
+        if (status.electedPeer) {
+          root.appendChild(
+            identityRow(
+              "Elected relay",
+              status.electedPeer.selfId +
+                " (capacity " +
+                status.electedPeer.capacity +
+                ")",
+            ),
+          );
+        }
+        (sharing.dataSets || []).forEach(function (set) {
+          var label = document.createElement("label");
+          label.className = "row";
+          var input = document.createElement("input");
+          input.type = "checkbox";
+          input.checked = !!set.public;
+          input.disabled = !(network && network.enabled);
+          input.onchange = function () {
+            setPublic(set.id, input.checked);
+          };
+          label.appendChild(input);
+          label.appendChild(text("code", set.title));
+          label.appendChild(text("span", set.description));
+          root.appendChild(label);
+        });
+        root.appendChild(
+          text(
+            "p",
+            "Open membership. Changes are saved to the plugin configuration and apply immediately.",
+          ),
+        );
+      }
+
+      async function setPublic(dataSet, enabled) {
+        try {
+          await call("/sharing", { dataSet: dataSet, public: enabled });
+          say("", false);
+          return refresh();
+        } catch (error) {
+          say(String(error), true);
+          return refresh();
+        }
       }
 
       function renderClaims(claims) {

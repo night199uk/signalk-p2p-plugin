@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { ADMIN_PAGE } from "./admin-page.js";
 import type { GroupControl, GroupResult } from "./groups/control.js";
 import type { ClaimControl } from "./security/control.js";
+import type { ConsentMode, DataSetId } from "./config.js";
 
 export interface P2PStatus {
   started: boolean;
@@ -29,8 +30,27 @@ export interface P2PStatus {
   error?: string;
 }
 
+export interface SharingInfo {
+  network?: {
+    id: string;
+    enabled: boolean;
+    consent?: ConsentMode;
+  };
+  dataSets: Array<{
+    id: DataSetId;
+    title: string;
+    description: string;
+    public: boolean;
+  }>;
+}
+
 export interface P2PControl extends ClaimControl, GroupControl {
   status(): P2PStatus;
+  sharing(): SharingInfo;
+  setPublicSharing(
+    dataSet: string,
+    publicValue: boolean,
+  ): Promise<{ ok: boolean; error?: string }>;
 }
 
 function sendGroup(res: Response, result: GroupResult): void {
@@ -38,7 +58,7 @@ function sendGroup(res: Response, result: GroupResult): void {
 }
 
 /**
- * Routes live on the plugin router (`/plugins/signalk-p2p/...`), which requires
+ * Routes live on the plugin router (`/plugins/signalk-p2p-plugin/...`), which requires
  * admin access. Membership and attestation changes are therefore operator-only.
  */
 export function registerRoutes(
@@ -60,6 +80,23 @@ export function registerRoutes(
       return;
     }
     res.json(identity);
+  });
+
+  router.get("/sharing", (_req: Request, res: Response) => {
+    res.json(control.sharing());
+  });
+
+  router.post("/sharing", (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as { dataSet?: unknown; public?: unknown };
+    if (typeof body.dataSet !== "string" || typeof body.public !== "boolean") {
+      res
+        .status(400)
+        .json({ ok: false, error: "dataSet and public are required" });
+      return;
+    }
+    void control
+      .setPublicSharing(body.dataSet, body.public)
+      .then((result) => sendGroup(res, result));
   });
 
   router.get("/claims", (_req: Request, res: Response) => {

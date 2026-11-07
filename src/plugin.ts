@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type {
   Context,
@@ -9,9 +10,15 @@ import type {
 } from "@signalk/server-api";
 import { AisTargetStore } from "./ais/store.js";
 import { buildAisRecords } from "./ais/publish.js";
-import { registerRoutes, type P2PControl, type P2PStatus } from "./api.js";
+import {
+  registerRoutes,
+  type P2PControl,
+  type P2PStatus,
+  type SharingInfo,
+} from "./api.js";
 import { decodeAisSnapshot, decodeAisStatic } from "./data/ais.js";
 import {
+  DATA_SETS,
   resolveConfig,
   schema,
   type Config,
@@ -49,7 +56,13 @@ import { ClaimRegistry } from "./security/registry.js";
 
 export const PLUGIN_ID = "signalk-p2p-plugin";
 export const PLUGIN_NAME = "Signal K P2P";
-export const PLUGIN_VERSION = "0.1.0";
+const PACKAGE_VERSION = (
+  JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { version: string }
+).version;
+
+export const PLUGIN_VERSION = PACKAGE_VERSION;
 
 const PUBLIC_NETWORK_ID = "all-vessels";
 const BATCH_INTERVAL_MS = 2000;
@@ -565,8 +578,50 @@ export default function createPlugin(app: ServerAPI): Plugin {
 
   const groupControl = createGroupControl(() => groups);
 
+  function sharingInfo(): SharingInfo {
+    const network = config.networks.find((entry) => entry.kind === "public");
+    return {
+      network: network
+        ? {
+            id: network.id,
+            enabled: network.enabled,
+            consent: network.consent,
+          }
+        : undefined,
+      dataSets: DATA_SETS.map((set) => ({
+        id: set.id,
+        title: set.title,
+        description: set.description,
+        public: config.sharing[set.id].public,
+      })),
+    };
+  }
+
+  async function setPublicSharing(
+    dataSet: string,
+    publicValue: boolean,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const set = DATA_SETS.find((entry) => entry.id === dataSet);
+    if (!set) return { ok: false, error: "unknown data set" };
+    const audience = config.sharing[set.id];
+    const previous = audience.public;
+    audience.public = publicValue;
+    return new Promise((resolve) => {
+      app.savePluginOptions(config, (err) => {
+        if (err) {
+          audience.public = previous;
+          resolve({ ok: false, error: `save failed: ${err.message}` });
+        } else {
+          resolve({ ok: true });
+        }
+      });
+    });
+  }
+
   const control: P2PControl = {
     status,
+    sharing: sharingInfo,
+    setPublicSharing,
     ...claimControl,
     ...groupControl,
   };

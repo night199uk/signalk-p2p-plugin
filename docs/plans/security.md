@@ -209,17 +209,17 @@ expired attestations, attestations issued more than five minutes in the future,
 and attestations from keys no longer in `publicAttestors` stop counting. A web UI
 and attestor governance are still pending, but the operator API is available:
 
-| Route (admin-only)                        | Purpose                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------ |
-| `GET /plugins/signalk-p2p/identity`       | This instance's public key and whether it is a configured attestor |
-| `GET /plugins/signalk-p2p/claims`         | Current claim registry                                             |
-| `POST /plugins/signalk-p2p/claims/attest` | Issue an attestation: `{ selfId, key?, expiresAt? }`               |
-| `POST /plugins/signalk-p2p/claims/revoke` | Revoke a claim: `{ selfId, key? }`                                 |
+| Route (admin-only)                               | Purpose                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------ |
+| `GET /plugins/signalk-p2p-plugin/identity`       | This instance's public key and whether it is a configured attestor |
+| `GET /plugins/signalk-p2p-plugin/claims`         | Current claim registry                                             |
+| `POST /plugins/signalk-p2p-plugin/claims/attest` | Issue an attestation: `{ selfId, key?, expiresAt? }`               |
+| `POST /plugins/signalk-p2p-plugin/claims/revoke` | Revoke a claim: `{ selfId, key? }`                                 |
 
 To act as an attestor, add this instance's public key (from `GET /identity`) to
 `security.publicAttestors` on the receivers, then call the attest/revoke route.
 The attestation is signed by the attestor and broadcast on the live network. A
-minimal admin page at `/plugins/signalk-p2p/admin` drives the same routes.
+minimal admin page at `/plugins/signalk-p2p-plugin/admin` drives the same routes.
 
 ### 5.2 Establishing a claim
 
