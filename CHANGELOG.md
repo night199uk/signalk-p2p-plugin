@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0 — 2026-11-02
+
+- The admin interface is now a Signal K webapp, listed under Webapps while the
+  plugin is enabled. The admin-gated `/plugins/signalk-p2p/admin` route remains.
+
 ## 0.1.1 — 2026-11-02
 
 Fix the Windows path assertion in the peer config test; no runtime changes.

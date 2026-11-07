@@ -24,8 +24,9 @@ joined by default, plus any number of private, encrypted groups.
   vessel context, so a peer can never overwrite another vessel's data.
 - Relay through elected peers with no fixed relays, plus an optional standalone
   Node.js peer for a VPS bootstrap when most boats are behind CGNAT.
-- A minimal admin page at `/plugins/signalk-p2p/admin` for claims, groups, join
-  requests and proposals.
+- An admin webapp for claims, groups, join requests and proposals. It appears
+  under **Webapps** while the plugin is enabled, and is also served at
+  `/plugins/signalk-p2p/admin` (admin login required).
 
 ## Install
 
@@ -39,6 +40,9 @@ npm install signalk-p2p-plugin
 ```
 
 Requires Node `>=22.5` (a Signal K server on Node 22.5 or newer).
+
+After enabling the plugin, open **Signal K P2P** from the Webapps menu. The UI
+calls the admin-gated API, so you must be signed in as an administrator.
 
 Default sharing is conservative: position, navigation, depth and AIS are on for
 the public mesh; environment, tanks, destination, anchor, propulsion and systems

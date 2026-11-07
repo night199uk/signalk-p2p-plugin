@@ -288,15 +288,17 @@ Not design gaps; they need real data:
 
 ## 10. Decisions log
 
-| #   | Decision                                                                                                          | Date       |
-| --- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1   | Holepunch stack; live/durable split; generation-rotated live cores.                                               | 2026-10-19 |
-| 2   | Public `all-vessels` joined/transmitting by default; four consent modes.                                          | 2026-10-19 |
-| 3   | Adaptive geographic sharding; a bootstrap peer publishes the map, election refines relays.                        | 2026-10-19 |
-| 4   | Inject remote vessels into the Signal K tree; local wins; no bridging.                                            | 2026-10-19 |
-| 5   | Groups by identity with signed roster, roles, invites, re-key/removal.                                            | 2026-10-19 |
-| 6   | Per-data-set sharing toggles (public / selected groups / none); curated defaults (no `electrical.*`).             | 2026-10-19 |
-| 7   | One authorized writer per context; groups approve MMSI/selfId; public claim registry with TOFU + attestors.       | 2026-10-19 |
-| 8   | No fixed relays: peer-elected aggregator per shard, gossip fallback, standalone Node.js bootstrap peer.           | 2026-10-19 |
-| 9   | LiveMessages are Ed25519-signed; receivers verify and bind selfId→key (TOFU until the claim registry).            | 2026-10-19 |
-| 10  | Public claim registry implemented: persisted claims, attestation/revocation verification, receiver authorization. | 2026-10-19 |
+| #   | Decision                                                                                                                                                          | Date       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1   | Holepunch stack; live/durable split; generation-rotated live cores.                                                                                               | 2026-10-19 |
+| 2   | Public `all-vessels` joined/transmitting by default; four consent modes.                                                                                          | 2026-10-19 |
+| 3   | Adaptive geographic sharding; a bootstrap peer publishes the map, election refines relays.                                                                        | 2026-10-19 |
+| 4   | Inject remote vessels into the Signal K tree; local wins; no bridging.                                                                                            | 2026-10-19 |
+| 5   | Groups by identity with signed roster, roles, invites, re-key/removal.                                                                                            | 2026-10-19 |
+| 6   | Per-data-set sharing toggles (public / selected groups / none); curated defaults (no `electrical.*`).                                                             | 2026-10-19 |
+| 7   | One authorized writer per context; groups approve MMSI/selfId; public claim registry with TOFU + attestors.                                                       | 2026-10-19 |
+| 8   | No fixed relays: peer-elected aggregator per shard, gossip fallback, standalone Node.js bootstrap peer.                                                           | 2026-10-19 |
+| 9   | LiveMessages are Ed25519-signed; receivers verify and bind selfId→key (TOFU until the claim registry).                                                            | 2026-10-19 |
+| 10  | Public claim registry implemented: persisted claims, attestation/revocation verification, receiver authorization.                                                 | 2026-10-19 |
+| 11  | Extended shared data: extra navigation/GNSS in the snapshot; environment, tanks, destination, anchor, propulsion and systems in a change-triggered Values record. | 2026-10-19 |
+| 12  | The admin interface is a Signal K webapp (listed while the plugin is enabled) and remains available on the admin-gated plugin route.                              | 2026-11-02 |

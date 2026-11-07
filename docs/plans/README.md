@@ -8,7 +8,8 @@ and routing enforcement are implemented (capability advertisements, weighted
 rendezvous, elected-aggregator routing). Private groups are implemented with
 signed roster snapshots with multi-admin quorum and catch-up, invites, join
 approval and removal rekey; the standalone peer can relay a group with
-`--group-invite`. A minimal admin page and the full group/claim API are in place. AIS sharing is implemented with
+`--group-invite`. A minimal admin webapp (listed under Webapps) and the full group/claim API are
+in place. AIS sharing is implemented with
 local-only collection and observation precedence.
 
 ## Goal

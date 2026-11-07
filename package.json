@@ -1,9 +1,10 @@
 {
   "name": "signalk-p2p-plugin",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Private and public peer-to-peer mesh networks for Signal K vessels.",
   "keywords": [
     "signalk-node-server-plugin",
+    "signalk-webapp",
     "signalk-category-ais",
     "signalk-category-utility",
     "signal-k",
@@ -43,6 +44,7 @@
     "dist/**/*.map",
     "docs/plans",
     "deploy",
+    "public",
     "icon.svg",
     "CHANGELOG.md"
   ],
