@@ -1,0 +1,109 @@
+name: Publish to npm
+
+# Push a version tag to publish:
+#   git tag -a v0.4.0 -m "v0.4.0" && git push origin v0.4.0
+#
+# Requires the repository secret NPM_TOKEN: an npm automation/granular token
+# with publish access to signalk-p2p-plugin. The workflow also creates the
+# GitHub release. For the first publish you can run it manually with an
+# existing tag from the Actions tab.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish (e.g. v0.4.0)"
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve tag
+        shell: bash
+        run: |
+          TAG_NAME="${{ inputs.tag || github.ref_name }}"
+          if [[ "$TAG_NAME" != v* ]]; then
+            echo "::error::Expected a v* tag, got '$TAG_NAME'"
+            exit 1
+          fi
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Require npm token
+        env:
+          TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::NPM_TOKEN is not set. Add an npm publish token as a repository secret."
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "${TAG_NAME#v}" != "$VERSION" ]; then
+            echo "::error::Tag $TAG_NAME does not match package.json version $VERSION"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+
+      - name: Create GitHub release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists"
+          else
+            gh release create "$TAG_NAME" \
+              --title "$TAG_NAME" \
+              --generate-notes \
+              --verify-tag
+          fi

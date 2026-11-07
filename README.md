@@ -103,6 +103,29 @@ key and signed policy files, never the private key. Use
 | [`spike-findings.md`](docs/plans/spike-findings.md)         | Measured payload and replication costs          |
 | [`peer-node.md`](docs/plans/peer-node.md)                   | Standalone Node.js peer / VPS relay             |
 
+## Releasing
+
+The repository publishes from git tags. The `Publish to npm` workflow:
+
+1. verifies the tag (`vX.Y.Z`) matches `package.json`,
+2. runs format, build, tests and lint,
+3. publishes to npm with provenance, and
+4. creates the matching GitHub release.
+
+```bash
+# bump package.json + CHANGELOG first
+git add package.json CHANGELOG.md
+git commit -m "Release X.Y.Z"
+git push
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+Add an npm token with publish access as the repository secret `NPM_TOKEN`. For
+the first publish you can run the workflow manually from **Actions → Publish to
+npm → Run workflow** with the existing tag (`v0.4.0`). Once the package exists,
+npm trusted publishing can replace the token later.
+
 ## Development
 
 ```bash
