@@ -444,6 +444,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
     if (path.startsWith("propulsion.") || path.startsWith("engine.")) {
       return "propulsion";
     }
+    if (path === "sensors.ais.class") return "identity";
     if (
       path.startsWith("steering.") ||
       path.startsWith("navigation.lights.") ||

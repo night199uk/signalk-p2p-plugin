@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1 — 2026-11-06
+
+- Assign `sensors.ais.class` to the identity data set so the own-vessel AIS
+  class is actually published and Freeboard-SK can select the vessel icon.
+
 ## 0.7.0 — 2026-11-06
 
 - Share AIS targets even when the receiver does not publish
