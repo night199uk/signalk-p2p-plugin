@@ -114,8 +114,9 @@ export class AisTargetStore {
   }
 
   /**
-   * Targets that can be shared: heard locally, with a position, an AIS class,
-   * and recently seen. The nearest to `position` come first.
+   * Targets that can be shared: heard locally, with a position, and recently
+   * seen. The AIS class is optional because many receivers do not publish it.
+   * The nearest to `position` come first.
    */
   nearest(
     position: { latitude: number; longitude: number } | undefined,
@@ -125,7 +126,6 @@ export class AisTargetStore {
   ): AisTarget[] {
     const eligible = [...this.targets.values()].filter(
       (target) =>
-        target.aisClass !== undefined &&
         target.latitude !== undefined &&
         target.longitude !== undefined &&
         now - target.lastSeen <= maxAgeSeconds,

@@ -58,7 +58,7 @@ describe("AisTargetStore", () => {
     expect(store.nearest(undefined, 10, 1000)).toHaveLength(0);
   });
 
-  it("requires an AIS class before sharing a target", () => {
+  it("shares a target even when the receiver omits AIS class", () => {
     const store = new AisTargetStore();
     store.applyDelta(
       aisDelta(
@@ -67,7 +67,9 @@ describe("AisTargetStore", () => {
       ),
       1000,
     );
-    expect(store.nearest(undefined, 10, 1000)).toHaveLength(0);
+    const targets = store.nearest(undefined, 10, 1000);
+    expect(targets).toHaveLength(1);
+    expect(targets[0].aisClass).toBeUndefined();
   });
 
   it("orders by distance and caps the result", () => {

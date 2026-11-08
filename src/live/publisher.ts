@@ -321,6 +321,7 @@ export class SelfPublisher {
 }
 
 function isValuePath(path: string): boolean {
+  if (path === "sensors.ais.class") return true;
   if (path.startsWith("sensors.")) {
     return !path.startsWith("sensors.ais.");
   }

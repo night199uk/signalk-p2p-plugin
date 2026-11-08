@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 — 2026-11-06
+
+- Share AIS targets even when the receiver does not publish
+  `sensors.ais.class`. Many AIS feeds omit that field, and the plugin was
+  discarding every such target.
+- Share the vessel's own `sensors.ais.class` in the values record so receivers
+  and Freeboard-SK can choose the correct vessel icon for P2P boats.
+
 ## 0.6.1 — 2026-11-06
 
 - Reorder the public-network card to Status, Peers, Sharing, AIS.

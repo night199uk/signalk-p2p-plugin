@@ -141,6 +141,7 @@ const VALUE_PATHS: string[] = [
   "navigation.destination.*",
   "navigation.anchor.*",
   "navigation.lights.*",
+  "sensors.ais.class",
 ];
 
 const INITIAL_VALUE_PATHS: string[] = [
@@ -156,6 +157,7 @@ const INITIAL_VALUE_PATHS: string[] = [
   "navigation.destination.commonName",
   "navigation.anchor.position",
   "navigation.anchor.radius",
+  "sensors.ais.class",
 ];
 
 const STATIC_PATHS: string[] = [
