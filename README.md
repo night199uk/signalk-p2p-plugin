@@ -62,8 +62,10 @@ The group **Invite** button creates a 10-character code such as `ABCDE-FGHJK`.
 The full signed invite is distributed to the group and served by any online
 member or relay, so the admin does not need to stay online after creating the
 code. At least one group member or relay must be online to serve it, and an
-admin must still approve the join. The code expires in 24 hours and is consumed
-when a join is approved. Long signed invite tokens from earlier versions remain
+admin must still approve the join. Until that happens the group shows **Pending
+administrator approval**; it only appears as a sharing column once the signed
+roster includes the instance. The code expires in 24 hours and is consumed when
+a join is approved. Long signed invite tokens from earlier versions remain
 accepted.
 
 ## Standalone peer

@@ -258,13 +258,7 @@
           call("/sharing"),
         ]);
         renderIdentity(results[0], results[1]);
-        renderSharing(
-          results[0],
-          results[6],
-          (results[3].groups || []).filter(function (group) {
-            return !group.removed;
-          }),
-        );
+        renderSharing(results[0], results[6], results[3].groups || []);
         renderClaims(results[2].claims || []);
         renderGroups(results[3].groups || []);
         renderRequests(results[4].requests || []);
@@ -379,6 +373,9 @@
         status = status || {};
         sharing = sharing || {};
         groups = groups || [];
+        var activeGroups = groups.filter(function (group) {
+          return !group.removed && !group.pendingApproval;
+        });
         var network = sharing.network;
         var publicEnabled = Boolean(network && network.enabled);
         root.appendChild(
@@ -496,7 +493,7 @@
         var head = document.createElement("tr");
         head.appendChild(text("th", "Data set"));
         head.appendChild(text("th", "Public"));
-        groups.forEach(function (group) {
+        activeGroups.forEach(function (group) {
           var th = text("th", group.name || group.id.slice(0, 8));
           th.title = group.id;
           head.appendChild(th);
@@ -518,7 +515,7 @@
               !publicEnabled,
             ),
           );
-          groups.forEach(function (group) {
+          activeGroups.forEach(function (group) {
             var checked =
               set.groups === "all" ||
               (Array.isArray(set.groups) && set.groups.indexOf(group.id) >= 0);
@@ -593,13 +590,42 @@
 
         wrap.appendChild(table);
         root.appendChild(wrap);
-        if (!groups.length) {
-          root.appendChild(
-            text(
-              "p",
+        if (!activeGroups.length) {
+          var pending = groups.filter(function (group) {
+            return group.pendingApproval;
+          });
+          var removed = groups.filter(function (group) {
+            return group.removed && !group.pendingApproval;
+          });
+          var messages = [];
+          if (pending.length) {
+            messages.push(
+              "Pending administrator approval: " +
+                pending
+                  .map(function (group) {
+                    return group.name || group.id.slice(0, 8);
+                  })
+                  .join(", ") +
+                ".",
+            );
+          }
+          if (removed.length) {
+            messages.push(
+              "Not in the current signed roster: " +
+                removed
+                  .map(function (group) {
+                    return group.name || group.id.slice(0, 8);
+                  })
+                  .join(", ") +
+                ". Ask a group admin to re-invite you.",
+            );
+          }
+          if (!messages.length) {
+            messages.push(
               "No private groups yet. Create or join one to add group columns.",
-            ),
-          );
+            );
+          }
+          root.appendChild(text("p", messages.join(" ")));
         }
         root.appendChild(
           text(
@@ -684,6 +710,16 @@
           row.appendChild(
             text("code", group.name + " · " + group.id.slice(0, 12)),
           );
+          var pendingExpired =
+            group.pendingApproval &&
+            group.pendingUntil &&
+            group.pendingUntil <= Math.floor(Date.now() / 1000);
+          var membership = group.pendingApproval
+            ? " · pending administrator approval" +
+              (pendingExpired ? " (invite expired)" : "")
+            : group.removed
+              ? " · removed"
+              : "";
           row.appendChild(
             text(
               "span",
@@ -691,7 +727,7 @@
                 " · " +
                 group.members +
                 " member(s)" +
-                (group.removed ? " · removed" : "") +
+                membership +
                 (group.pendingProposals
                   ? " · " + group.pendingProposals + " proposal(s)"
                   : ""),
@@ -730,7 +766,11 @@
           );
           root.appendChild(row);
 
-          if (!group.removed && group.role !== "viewer") {
+          if (
+            !group.removed &&
+            !group.pendingApproval &&
+            group.role !== "viewer"
+          ) {
             var rateRow = document.createElement("div");
             rateRow.className = "row";
             rateRow.appendChild(text("code", "Publish rate"));

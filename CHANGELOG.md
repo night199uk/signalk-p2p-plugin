@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0 — 2026-11-06
+
+- Track join approval explicitly. A join request now shows "Pending
+  administrator approval" and is not treated as removed when the current signed
+  roster does not yet contain the instance. Pending clears when an approved
+  roster includes it; an actual removal still shows as removed. Invite expiry is
+  surfaced in the pending state.
+- Re-joining a removed or pending group with a new invite now rebuilds the local
+  state and resends the join request instead of returning the stale state.
+
 ## 0.8.0 — 2026-11-06
 
 - Add AIS source selection. The plugin tracks the local source labels that

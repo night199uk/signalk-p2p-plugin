@@ -346,7 +346,12 @@ export class GroupManager {
       throw new Error("roster is not approved");
     }
     const existing = this.groups.get(invite.groupId);
-    if (existing) return this.info(existing);
+    if (existing && !existing.removed && !existing.pendingApproval) {
+      return this.info(existing);
+    }
+    if (existing) {
+      await this.stopGroup(invite.groupId);
+    }
 
     const epochKey = Buffer.from(invite.epochKey, "base64");
     if (epochKey.length !== 32) throw new Error("invalid epoch key");
@@ -356,6 +361,9 @@ export class GroupManager {
       epochKey,
       invite.role,
     );
+    state.removed = false;
+    state.pendingApproval = true;
+    state.pendingUntil = invite.expiresAt;
     this.groups.set(invite.groupId, state);
     await this.save();
     if (this.autoStart) await this.startGroup(state);
@@ -691,6 +699,12 @@ export class GroupManager {
     this.clearProposals(roster.groupId, roster.version);
 
     if (!me) {
+      if (state.pendingApproval) {
+        // A roster update that omits us while our join is awaiting approval.
+        // Do not turn a pending join into a removal; wait for the approved
+        // roster that includes us, or for the invite to expire.
+        return;
+      }
       state.removed = true;
       state.roster = roster;
       state.approvals = approvals;
@@ -719,6 +733,8 @@ export class GroupManager {
     state.dataTopic = groupDataTopic(epochKey).toString("hex");
     state.role = me.role;
     state.removed = false;
+    state.pendingApproval = false;
+    state.pendingUntil = undefined;
     state.publishRateHz = Math.min(
       state.publishRateHz ?? groupRateCap(roster),
       groupRateCap(roster),
@@ -1246,6 +1262,8 @@ export class GroupManager {
       epoch: state.roster.epoch,
       members: state.roster.members.length,
       removed: Boolean(state.removed),
+      pendingApproval: Boolean(state.pendingApproval),
+      pendingUntil: state.pendingUntil,
       pendingProposals: this.proposals.get(state.roster.groupId)?.size ?? 0,
       rateCapHz: groupRateCap(state.roster),
       publishRateHz: groupPublishRate(state),

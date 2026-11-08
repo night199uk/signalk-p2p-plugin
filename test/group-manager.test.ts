@@ -111,6 +111,15 @@ describe("GroupManager", () => {
     const token = owner.manager.createInvite(group.id, "member");
     const joined = await joiner.manager.join(token, "123456789");
     expect(joined.role).toBe("member");
+    expect(joined.pendingApproval).toBe(true);
+
+    // A roster update before approval must leave the join pending, not remove it.
+    await owner.manager.setRateCap(group.id, 2);
+    await joiner.manager.receiveRoster(owner.manager.exportRoster(group.id));
+    expect(joiner.manager.list()[0]).toMatchObject({
+      removed: false,
+      pendingApproval: true,
+    });
 
     const { invite, request } = joinRequest(
       token,
@@ -134,6 +143,7 @@ describe("GroupManager", () => {
       role: "member",
       members: 2,
       removed: false,
+      pendingApproval: false,
     });
     expect(
       joiner.manager.authorize(

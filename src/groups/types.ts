@@ -80,6 +80,10 @@ export interface GroupState {
   /** Invite nonces already used by this admin. */
   usedInvites?: string[];
   removed?: boolean;
+  /** A join request has been sent and is awaiting admin approval. */
+  pendingApproval?: boolean;
+  /** Unix seconds after which the invite can no longer be approved. */
+  pendingUntil?: number;
 }
 
 export interface GroupInvite {
@@ -121,6 +125,8 @@ export interface GroupInfo {
   epoch: number;
   members: number;
   removed: boolean;
+  pendingApproval: boolean;
+  pendingUntil?: number;
   pendingProposals: number;
   rateCapHz: number;
   publishRateHz: number;
