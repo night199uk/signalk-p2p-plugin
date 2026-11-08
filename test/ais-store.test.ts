@@ -72,6 +72,24 @@ describe("AisTargetStore", () => {
     expect(targets[0].aisClass).toBeUndefined();
   });
 
+  it("tracks and filters local AIS sources", () => {
+    const store = new AisTargetStore();
+    store.applyDelta(aisDelta(232001999, targetValues, "physical"), 1000);
+    store.applyDelta(aisDelta(232001998, targetValues, "marinetraffic"), 1000);
+
+    expect(store.sourceLabels()).toEqual(["marinetraffic", "physical"]);
+    expect(
+      store
+        .nearest(undefined, 10, 1000, 900, ["physical"])
+        .map((target) => target.mmsi),
+    ).toEqual([232001999]);
+    expect(
+      store
+        .nearest(undefined, 10, 1000, 900, ["marinetraffic"])
+        .map((target) => target.mmsi),
+    ).toEqual([232001998]);
+  });
+
   it("orders by distance and caps the result", () => {
     const store = new AisTargetStore();
     store.applyDelta(

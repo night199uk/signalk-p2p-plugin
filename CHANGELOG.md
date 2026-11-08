@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 — 2026-11-06
+
+- Add AIS source selection. The plugin tracks the local source labels that
+  contributed to each AIS target and exposes them in the webapp. Checkboxes let
+  you share only selected feeds (for example, physical AIS but not
+  MarineTraffic). Targets heard only from unchecked sources are not shared.
+- The AIS source list refreshes with the status and defaults to all local
+  sources, preserving existing behavior until you change it.
+
 ## 0.7.1 — 2026-11-06
 
 - Assign `sensors.ais.class` to the identity data set so the own-vessel AIS

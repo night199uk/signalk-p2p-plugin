@@ -165,6 +165,8 @@ export interface AisConfig extends ShareAudience {
   mode: AisMode;
   maxTargets: number;
   rateHz: number;
+  /** Local source labels to share; "all" shares every local AIS feed. */
+  sources: "all" | string[];
 }
 
 export interface InjectConfig {
@@ -238,6 +240,7 @@ export function defaultConfig(): Config {
       mode: "subscribe",
       maxTargets: 100,
       rateHz: 0.02,
+      sources: "all",
     },
     networks: [
       {

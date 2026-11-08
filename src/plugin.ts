@@ -558,6 +558,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
       maxTargets,
       Math.floor(now / 1000),
       AIS_MAX_AGE_SECONDS,
+      config.ais.sources,
     );
     const records = buildAisRecords(targets, sentAisStatic);
     if (records.length > 0) {
@@ -692,6 +693,8 @@ export default function createPlugin(app: ServerAPI): Plugin {
         public: config.ais.public,
         groups: config.ais.groups,
         mode: config.ais.mode,
+        sources: config.ais.sources,
+        knownSources: aisStore?.sourceLabels() ?? [],
       },
     };
   }
@@ -702,6 +705,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
       public?: boolean;
       groups?: "all" | string[];
       mode?: AisMode;
+      sources?: "all" | string[];
     },
   ): Promise<{ ok: boolean; error?: string }> {
     if (dataSet === "ais") {
@@ -720,10 +724,19 @@ export default function createPlugin(app: ServerAPI): Plugin {
           return { ok: false, error: "invalid AIS mode" };
         }
       }
+      if (
+        update.sources !== undefined &&
+        update.sources !== "all" &&
+        (!Array.isArray(update.sources) ||
+          update.sources.some((source) => typeof source !== "string"))
+      ) {
+        return { ok: false, error: "invalid AIS sources" };
+      }
       const previous = { ...config.ais };
       if (update.public !== undefined) config.ais.public = update.public;
       if (update.groups !== undefined) config.ais.groups = update.groups;
       if (update.mode !== undefined) config.ais.mode = update.mode;
+      if (update.sources !== undefined) config.ais.sources = update.sources;
       try {
         saveAdvancedConfig(app.getDataDirPath(), config);
         if (update.mode !== undefined) applyAisSubscription();

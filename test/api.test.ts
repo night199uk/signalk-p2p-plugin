@@ -40,6 +40,8 @@ describe("plugin routes", () => {
           public: false,
           groups: [] as string[],
           mode: "subscribe" as const,
+          sources: "all" as const,
+          knownSources: [] as string[],
         },
       }),
       setSharing: async (dataSet, update) => {
@@ -89,7 +91,13 @@ describe("plugin routes", () => {
     const sharing = await fetch(`${base}/sharing`);
     expect(await sharing.json()).toEqual({
       dataSets: [],
-      ais: { public: false, groups: [], mode: "subscribe" },
+      ais: {
+        public: false,
+        groups: [],
+        mode: "subscribe",
+        sources: "all",
+        knownSources: [],
+      },
     });
 
     const setSharing = await fetch(`${base}/sharing`, {
@@ -110,7 +118,12 @@ describe("plugin routes", () => {
     expect(setGroups.status).toBe(200);
     expect(shares[1]).toEqual([
       "navigation",
-      { public: undefined, groups: ["g1"], mode: undefined },
+      {
+        public: undefined,
+        groups: ["g1"],
+        mode: undefined,
+        sources: undefined,
+      },
     ]);
 
     const setAis = await fetch(`${base}/sharing`, {
@@ -121,7 +134,28 @@ describe("plugin routes", () => {
     expect(setAis.status).toBe(200);
     expect(shares[2]).toEqual([
       "ais",
-      { public: undefined, groups: undefined, mode: "both" },
+      {
+        public: undefined,
+        groups: undefined,
+        mode: "both",
+        sources: undefined,
+      },
+    ]);
+
+    const setAisSources = await fetch(`${base}/sharing`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dataSet: "ais", sources: ["physical"] }),
+    });
+    expect(setAisSources.status).toBe(200);
+    expect(shares[3]).toEqual([
+      "ais",
+      {
+        public: undefined,
+        groups: undefined,
+        mode: undefined,
+        sources: ["physical"],
+      },
     ]);
 
     const consent = await fetch(`${base}/network/consent`, {
@@ -159,6 +193,8 @@ describe("plugin routes", () => {
           public: false,
           groups: [] as string[],
           mode: "subscribe" as const,
+          sources: "all" as const,
+          knownSources: [] as string[],
         },
       }),
       setSharing: async () => ({ ok: true }),

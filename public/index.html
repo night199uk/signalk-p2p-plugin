@@ -448,6 +448,46 @@
         );
         root.appendChild(aisModeRow);
 
+        var knownAisSources = sharing.ais.knownSources || [];
+        if (knownAisSources.length) {
+          var sourcesHeading = document.createElement("div");
+          sourcesHeading.className = "row";
+          sourcesHeading.appendChild(text("code", "AIS sources"));
+          sourcesHeading.appendChild(
+            text("span", "Choose which local AIS feeds are shared."),
+          );
+          root.appendChild(sourcesHeading);
+          knownAisSources.forEach(function (source) {
+            var sourceLabel = document.createElement("label");
+            sourceLabel.className = "row";
+            var sourceInput = document.createElement("input");
+            sourceInput.type = "checkbox";
+            sourceInput.checked =
+              ais.sources === "all" ||
+              (Array.isArray(ais.sources) && ais.sources.indexOf(source) >= 0);
+            sourceInput.disabled = !aisSharing;
+            sourceInput.onchange = function () {
+              var current =
+                ais.sources === "all"
+                  ? knownAisSources.slice()
+                  : ais.sources.slice();
+              if (sourceInput.checked) {
+                if (current.indexOf(source) < 0) current.push(source);
+              } else {
+                current = current.filter(function (label) {
+                  return label !== source;
+                });
+              }
+              setSharing("ais", { sources: current });
+            };
+            sourceLabel.appendChild(sourceInput);
+            sourceLabel.appendChild(text("code", source));
+            root.appendChild(sourceLabel);
+          });
+        } else {
+          root.appendChild(text("p", "No local AIS sources seen yet."));
+        }
+
         var wrap = document.createElement("div");
         wrap.className = "sharing-wrap";
         var table = document.createElement("table");

@@ -56,6 +56,8 @@ export interface SharingInfo {
     public: boolean;
     groups: "all" | string[];
     mode: AisMode;
+    sources: "all" | string[];
+    knownSources: string[];
   };
 }
 
@@ -68,6 +70,7 @@ export interface P2PControl extends ClaimControl, GroupControl {
       public?: boolean;
       groups?: "all" | string[];
       mode?: AisMode;
+      sources?: "all" | string[];
     },
   ): Promise<{ ok: boolean; error?: string }>;
   setConsent(consent: string): Promise<{ ok: boolean; error?: string }>;
@@ -112,10 +115,26 @@ export function registerRoutes(
       public?: unknown;
       groups?: unknown;
       mode?: unknown;
+      sources?: unknown;
     };
     const publicValue =
       typeof body.public === "boolean" ? body.public : undefined;
     const modeValue = typeof body.mode === "string" ? body.mode : undefined;
+    let sourceValue: "all" | string[] | undefined;
+    if (body.sources === "all") {
+      sourceValue = "all";
+    } else if (Array.isArray(body.sources)) {
+      if (body.sources.some((source) => typeof source !== "string")) {
+        res.status(400).json({ ok: false, error: "sources must be strings" });
+        return;
+      }
+      sourceValue = body.sources as string[];
+    } else if (body.sources !== undefined) {
+      res
+        .status(400)
+        .json({ ok: false, error: "sources must be 'all' or an array" });
+      return;
+    }
     let groups: "all" | string[] | undefined;
     if (body.groups === "all") {
       groups = "all";
@@ -135,7 +154,8 @@ export function registerRoutes(
       typeof body.dataSet !== "string" ||
       (publicValue === undefined &&
         groups === undefined &&
-        modeValue === undefined)
+        modeValue === undefined &&
+        sourceValue === undefined)
     ) {
       res.status(400).json({
         ok: false,
@@ -148,6 +168,7 @@ export function registerRoutes(
         public: publicValue,
         groups,
         mode: modeValue as AisMode | undefined,
+        sources: sourceValue,
       })
       .then((result) => sendGroup(res, result));
   });

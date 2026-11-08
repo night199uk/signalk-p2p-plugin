@@ -16,6 +16,7 @@ describe("config", () => {
     expect(config.networks[0].consent).toBe("receive-only");
     expect(config.ais.mode).toBe("subscribe");
     expect(config.ais.public).toBe(false);
+    expect(config.ais.sources).toBe("all");
   });
 
   it("merges a partial data-set override without dropping its sibling", () => {

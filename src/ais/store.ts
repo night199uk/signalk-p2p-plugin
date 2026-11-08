@@ -14,6 +14,8 @@ export interface AisTarget {
   heading?: number;
   navState?: NavState;
   aisClass?: AisClass;
+  /** Local source labels that contributed to this target. */
+  sources: Set<string>;
   /** Unix seconds when this target was last heard locally. */
   lastSeen: number;
 }
@@ -27,6 +29,7 @@ const MMSI_CONTEXT = /^vessels\.urn:mrn:imo:mmsi:(\d+)$/;
  */
 export class AisTargetStore {
   private readonly targets = new Map<number, AisTarget>();
+  private readonly knownSources = new Map<string, number>();
 
   constructor(private readonly selfMmsi?: number) {}
 
@@ -38,14 +41,17 @@ export class AisTargetStore {
 
     for (const update of delta.updates) {
       if (!("values" in update)) continue;
-      if (update.source?.label === "signalk-p2p") continue;
+      const source = update.source?.label ?? "unknown";
+      if (source === "signalk-p2p") continue;
 
       let target = this.targets.get(mmsi);
       if (!target) {
-        target = { mmsi, lastSeen: now };
+        target = { mmsi, lastSeen: now, sources: new Set() };
         this.targets.set(mmsi, target);
       }
       target.lastSeen = now;
+      target.sources.add(source);
+      this.knownSources.set(source, now);
       for (const { path, value } of update.values) {
         this.applyPath(target, path as string, value);
       }
@@ -123,12 +129,15 @@ export class AisTargetStore {
     maxTargets: number,
     now: number,
     maxAgeSeconds = 900,
+    sources: "all" | string[] = "all",
   ): AisTarget[] {
+    const allowed = sources === "all" ? undefined : new Set(sources);
     const eligible = [...this.targets.values()].filter(
       (target) =>
         target.latitude !== undefined &&
         target.longitude !== undefined &&
-        now - target.lastSeen <= maxAgeSeconds,
+        now - target.lastSeen <= maxAgeSeconds &&
+        (!allowed || [...target.sources].some((source) => allowed.has(source))),
     );
 
     if (position) {
@@ -147,6 +156,11 @@ export class AisTargetStore {
     return eligible.slice(0, maxTargets);
   }
 
+  /** Source labels seen on local AIS targets, excluding P2P observations. */
+  sourceLabels(): string[] {
+    return [...this.knownSources.keys()].sort();
+  }
+
   prune(now: number, maxAgeSeconds = 900): void {
     for (const [mmsi, target] of this.targets) {
       if (now - target.lastSeen > maxAgeSeconds) {
@@ -157,6 +171,7 @@ export class AisTargetStore {
 
   clear(): void {
     this.targets.clear();
+    this.knownSources.clear();
   }
 }
 
