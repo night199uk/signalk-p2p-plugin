@@ -1028,7 +1028,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
     }
   }
 
-  return {
+  const plugin: Plugin = {
     id: PLUGIN_ID,
     name: PLUGIN_NAME,
     description:
@@ -1141,7 +1141,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
       );
     },
 
-    stop() {
+    async stop() {
       running = false;
       eventLoopDelay.disable();
       if (tickTimer) {
@@ -1157,12 +1157,12 @@ export default function createPlugin(app: ServerAPI): Plugin {
       }
       unsubscribes = [];
       unsubscribeAis();
-      void client?.stop();
+      await client?.stop();
       client = undefined;
       publisher = undefined;
-      void registry?.flush();
+      await registry?.flush();
       registry = undefined;
-      void groups?.stop();
+      await groups?.stop();
       groups = undefined;
       directory = undefined;
       aisStore?.clear();
@@ -1178,6 +1178,30 @@ export default function createPlugin(app: ServerAPI): Plugin {
       registerRoutes(router, control);
     },
   };
+
+  // Serialize start/stop so a fast disable/enable cannot tear down `identity`
+  // while an async start is still awaiting files or network setup.
+  const startInternal = plugin.start.bind(plugin) as (
+    config?: Partial<Config>,
+  ) => Promise<void>;
+  const stopInternal = plugin.stop!.bind(plugin);
+  let lifecycleQueue: Promise<void> = Promise.resolve();
+
+  plugin.start = (startConfig) => {
+    const run = lifecycleQueue
+      .catch(() => {})
+      .then(() => startInternal(startConfig));
+    lifecycleQueue = run.catch(() => {});
+    return run;
+  };
+
+  plugin.stop = () => {
+    const run = lifecycleQueue.catch(() => {}).then(() => stopInternal());
+    lifecycleQueue = run.catch(() => {});
+    return run;
+  };
+
+  return plugin;
 }
 
 function selfMmsiFromId(selfId: string): number | undefined {

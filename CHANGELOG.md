@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 — 2026-11-09
+
+- Serialize plugin start/stop and await client, registry and group cleanup.
+  A fast disable/enable could previously clear `identity` while the new start was
+  still awaiting setup, causing `publicKeyRaw`/`fingerprint` undefined errors.
+
 ## 0.9.0 — 2026-11-06
 
 - Track join approval explicitly. A join request now shows "Pending
