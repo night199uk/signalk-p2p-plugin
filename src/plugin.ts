@@ -809,6 +809,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
     sharing: sharingInfo,
     setSharing,
     setConsent,
+    setNetworkEnabled,
     ...claimControl,
     ...groupControl,
   };
@@ -1028,6 +1029,94 @@ export default function createPlugin(app: ServerAPI): Plugin {
     }
   }
 
+  async function startPublicNetwork(): Promise<void> {
+    if (client) return;
+    const network = publicNetwork();
+    if (!network || !identity) {
+      throw new Error("public network is not available");
+    }
+    startedAt = Math.floor(Date.now() / 1000);
+    const topic = networkTopic(ALL_VESSELS_TOPIC);
+    directory = new PeerDirectory(topic);
+    const nextClient = new LiveClient({
+      identity,
+      selfId,
+      topic,
+      batchIntervalMs: BATCH_INTERVAL_MS,
+      log: {
+        info: (message) => app.debug(message),
+        error: (message) => app.error(message),
+        debug: (message) => app.debug(message),
+      },
+    });
+    nextClient.onMessage(handleMessage);
+    try {
+      await nextClient.start();
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+      app.setPluginError(`P2P network failed: ${error}`);
+      await nextClient.stop();
+      directory = undefined;
+      throw cause;
+    }
+    client = nextClient;
+    error = undefined;
+    app.setPluginStatus(
+      `P2P identity ${identity.fingerprint.slice(0, 12)} on ` +
+        `${ALL_VESSELS_TOPIC} (protocol v${PROTOCOL_VERSION})`,
+    );
+  }
+
+  async function stopPublicNetwork(): Promise<void> {
+    const active = client;
+    client = undefined;
+    directory = undefined;
+    await active?.stop();
+    if (running) {
+      app.setPluginStatus("P2P: public network disabled; private groups only");
+    }
+  }
+
+  async function setNetworkEnabled(
+    enabled: boolean,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const network = config.networks.find((entry) => entry.kind === "public");
+    if (!network) return { ok: false, error: "no public network" };
+    if (network.enabled === enabled) return { ok: true };
+    const previous = network.enabled;
+    network.enabled = enabled;
+    try {
+      saveAdvancedConfig(app.getDataDirPath(), config);
+    } catch (saveError) {
+      network.enabled = previous;
+      return {
+        ok: false,
+        error: `save failed: ${String(saveError)}`,
+      };
+    }
+    if (running) {
+      if (enabled) {
+        try {
+          await startPublicNetwork();
+        } catch (startError) {
+          network.enabled = false;
+          try {
+            saveAdvancedConfig(app.getDataDirPath(), config);
+          } catch {
+            // ignore
+          }
+          return {
+            ok: false,
+            error: String(startError),
+          };
+        }
+      } else {
+        await stopPublicNetwork();
+      }
+    }
+    return { ok: true };
+  }
+
   const plugin: Plugin = {
     id: PLUGIN_ID,
     name: PLUGIN_NAME,
@@ -1100,45 +1189,27 @@ export default function createPlugin(app: ServerAPI): Plugin {
       loadInitialState();
       aisStore = new AisTargetStore(selfMmsi);
 
-      const network = publicNetwork();
-      if (!network) {
-        app.setPluginStatus("P2P: no public network enabled");
-        return;
-      }
-
-      startedAt = Math.floor(Date.now() / 1000);
-      const topic = networkTopic(ALL_VESSELS_TOPIC);
-      directory = new PeerDirectory(topic);
-
-      client = new LiveClient({
-        identity,
-        selfId,
-        topic,
-        batchIntervalMs: BATCH_INTERVAL_MS,
-        log: {
-          info: (message) => app.debug(message),
-          error: (message) => app.error(message),
-          debug: (message) => app.debug(message),
-        },
-      });
-      client.onMessage(handleMessage);
-
-      try {
-        await client.start();
-      } catch (cause) {
-        error = cause instanceof Error ? cause.message : String(cause);
-        app.setPluginError(`P2P network failed: ${error}`);
-      }
-
+      // These support both public and group publishing. They must run even
+      // when the public network is disabled.
       subscribeSelf();
       subscribeAis();
       tickTimer = setInterval(publishTick, TICK_INTERVAL_MS);
       tickTimer.unref?.();
 
-      app.setPluginStatus(
-        `P2P identity ${identity.fingerprint.slice(0, 12)} on ` +
-          `${ALL_VESSELS_TOPIC} (protocol v${PROTOCOL_VERSION})`,
-      );
+      if (!publicNetwork()) {
+        app.setPluginStatus(
+          "P2P: public network disabled; private groups only",
+        );
+        return;
+      }
+
+      try {
+        await startPublicNetwork();
+      } catch {
+        app.setPluginStatus(
+          "P2P: public network failed; private groups still active",
+        );
+      }
     },
 
     async stop() {

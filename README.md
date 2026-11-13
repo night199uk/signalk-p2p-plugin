@@ -68,6 +68,13 @@ roster includes the instance. The code expires in 24 hours and is consumed when
 a join is approved. Long signed invite tokens from earlier versions remain
 accepted.
 
+### Private groups only
+
+To use Signal K P2P without the public mesh, uncheck **Join all-vessels public
+network** in the webapp. The public client stops and public sharing controls are
+disabled; private group invites, data sharing and AIS group sharing continue to
+work. You can rejoin the public network at any time by checking it again.
+
 ## Standalone peer
 
 Run a relay on a VPS or always-on host when most boats are behind CGNAT:

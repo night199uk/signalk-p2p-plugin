@@ -74,6 +74,7 @@ export interface P2PControl extends ClaimControl, GroupControl {
     },
   ): Promise<{ ok: boolean; error?: string }>;
   setConsent(consent: string): Promise<{ ok: boolean; error?: string }>;
+  setNetworkEnabled(enabled: boolean): Promise<{ ok: boolean; error?: string }>;
 }
 
 function sendGroup(res: Response, result: GroupResult): void {
@@ -170,6 +171,17 @@ export function registerRoutes(
         mode: modeValue as AisMode | undefined,
         sources: sourceValue,
       })
+      .then((result) => sendGroup(res, result));
+  });
+
+  router.post("/network/enabled", (req: Request, res: Response) => {
+    const enabled = (req.body ?? {}).enabled;
+    if (typeof enabled !== "boolean") {
+      res.status(400).json({ ok: false, error: "enabled is required" });
+      return;
+    }
+    void control
+      .setNetworkEnabled(enabled)
       .then((result) => sendGroup(res, result));
   });
 

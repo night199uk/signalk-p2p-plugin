@@ -49,6 +49,7 @@ describe("plugin routes", () => {
         return { ok: true };
       },
       setConsent: async () => ({ ok: true }),
+      setNetworkEnabled: async () => ({ ok: true }),
       attest: (input) => {
         attests.push(input);
         return { ok: true };
@@ -158,6 +159,13 @@ describe("plugin routes", () => {
       },
     ]);
 
+    const networkEnabled = await fetch(`${base}/network/enabled`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled: false }),
+    });
+    expect(networkEnabled.status).toBe(200);
+
     const consent = await fetch(`${base}/network/consent`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -199,6 +207,7 @@ describe("plugin routes", () => {
       }),
       setSharing: async () => ({ ok: true }),
       setConsent: async () => ({ ok: true }),
+      setNetworkEnabled: async () => ({ ok: true }),
       attest: () => ({ ok: false, error: "not an attestor" }),
       revoke: () => ({ ok: false, error: "not an attestor" }),
     };

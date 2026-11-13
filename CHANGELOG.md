@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0 — 2026-11-09
+
+- Add a “Join all-vessels public network” toggle. Uncheck it to use Signal K P2P
+  for private groups only; the public client is stopped and public sharing
+  controls are disabled, while group publishing, group invites, AIS group
+  sharing and subscriptions keep working.
+- Startup now initializes self/AIS subscriptions and the publish timer even when
+  the public network is disabled, and the public network can be enabled or
+  disabled live from the webapp.
+
 ## 0.9.1 — 2026-11-09
 
 - Serialize plugin start/stop and await client, registry and group cleanup.

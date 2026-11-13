@@ -18,6 +18,7 @@ describe("admin webapp", () => {
     expect(html).toContain("setConsent(");
     expect(html).toContain("AIS targets");
     expect(html).toContain("AIS sources");
+    expect(html).toContain("Join all-vessels public network");
     expect(html).toContain("setGroupRate(");
     expect(html).toContain("setGroupRateCap(");
     expect(html).toContain("<summary>Advanced</summary>");

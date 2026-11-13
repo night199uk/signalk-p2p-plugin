@@ -378,15 +378,27 @@
         });
         var network = sharing.network;
         var publicEnabled = Boolean(network && network.enabled);
-        root.appendChild(
-          identityRow(
-            "Public network",
-            network ? network.id : "not configured",
-          ),
+        var networkRow = document.createElement("div");
+        networkRow.className = "row";
+        var networkInput = document.createElement("input");
+        networkInput.type = "checkbox";
+        networkInput.checked = Boolean(network && network.enabled);
+        networkInput.disabled = !network;
+        networkInput.onchange = function () {
+          setNetworkEnabled(networkInput.checked);
+        };
+        networkRow.appendChild(networkInput);
+        networkRow.appendChild(
+          text("code", network ? network.id : "not configured"),
         );
+        networkRow.appendChild(text("span", "Join all-vessels public network"));
+        root.appendChild(networkRow);
         if (network) {
           root.appendChild(
-            identityRow("Status", network.enabled ? "enabled" : "disabled"),
+            identityRow(
+              "Status",
+              network.enabled ? "enabled" : "disabled · private groups only",
+            ),
           );
         }
         root.appendChild(identityRow("Peers", status.peers));
@@ -407,6 +419,7 @@
             consent.appendChild(option);
           });
           consent.value = network.consent || "receive-only";
+          consent.disabled = !network.enabled;
           consent.onchange = function () {
             setConsent(consent.value);
           };
@@ -633,6 +646,17 @@
             "Check a group column to share that data set with that group. Public membership is open. Changes apply immediately.",
           ),
         );
+      }
+
+      async function setNetworkEnabled(enabled) {
+        try {
+          await call("/network/enabled", { enabled: enabled });
+          say("", false);
+          return refresh();
+        } catch (error) {
+          say(String(error), true);
+          return refresh();
+        }
       }
 
       async function setConsent(consent) {
