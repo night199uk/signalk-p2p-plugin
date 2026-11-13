@@ -194,16 +194,24 @@ but that is an explicit choice.
 Tanks are their own sets (§2.8), propulsion is its own set (§2.10), and neither is
 part of Systems.
 
-### 2.12 Excluded (never in the public set; not offered as public toggles)
+### 2.12 Electrical
 
-| Path                      | Reason                                                                              |
-| ------------------------- | ----------------------------------------------------------------------------------- |
-| `electrical.*`            | Batteries, chargers, AC/DC. Private and high-volume. Group-only, advanced override. |
-| `communication.*`         | Credentials, SIM, provider data. Never.                                             |
-| `plugins.*`               | Plugin internals. Never.                                                            |
-| `resources.*`             | Server resources. Never.                                                            |
-| `sensors.ais.boundingBox` | Plugin-internal artifact. Never.                                                    |
-| `notifications.*`         | Noisy, unclear value; not in v1.                                                    |
+| Path           | Notes                                                     |
+| -------------- | --------------------------------------------------------- |
+| `electrical.*` | Batteries, chargers, inverters, switches, solar and power |
+
+Off by default; it can be shared publicly or with groups. It is a separate
+sharing data set so electrical telemetry does not have to accompany Systems.
+
+### 2.13 Excluded (never in the public set; not offered as public toggles)
+
+| Path                      | Reason                                  |
+| ------------------------- | --------------------------------------- |
+| `communication.*`         | Credentials, SIM, provider data. Never. |
+| `plugins.*`               | Plugin internals. Never.                |
+| `resources.*`             | Server resources. Never.                |
+| `sensors.ais.boundingBox` | Plugin-internal artifact. Never.        |
+| `notifications.*`         | Noisy, unclear value; not in v1.        |
 
 ---
 

@@ -82,6 +82,7 @@ describe("SelfPublisher", () => {
     value.update("environment.wind.speedTrue", 7.5);
     value.update("tanks.fuel.0.currentLevel", 0.6);
     value.update("navigation.destination.commonName", "Cowes");
+    value.update("electrical.batteries.house.voltage", 12.8);
 
     const snapshot = value.buildSnapshot(1_765_000_000, {
       includePosition: false,
@@ -96,12 +97,14 @@ describe("SelfPublisher", () => {
         (path) =>
           path.startsWith("environment.wind") ||
           path.startsWith("tanks.") ||
-          path.startsWith("navigation.destination."),
+          path.startsWith("navigation.destination.") ||
+          path.startsWith("electrical."),
       ),
     ).toEqual({
       "environment.wind.speedTrue": 7.5,
       "tanks.fuel.0.currentLevel": 0.6,
       "navigation.destination.commonName": "Cowes",
+      "electrical.batteries.house.voltage": 12.8,
     });
   });
 

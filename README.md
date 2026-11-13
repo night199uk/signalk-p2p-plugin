@@ -13,7 +13,7 @@ joined by default, plus any number of private, encrypted groups.
 
 - Share position, navigation (including magnetic course/heading, attitude, rate of
   turn, speed through water and GNSS DOP/satellites), depth, environment, tanks,
-  destination, anchor, propulsion and systems, per network.
+  destination, anchor, propulsion, systems and electrical, per network.
 - Join the global `all-vessels` network automatically, but transmit only after
   opting in (receive-only by default; four consent modes).
 - Create private groups with encrypted data, short per-invite codes, roles,

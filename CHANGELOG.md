@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0 — 2026-11-13
+
+- Add **Electrical** (`electrical.*`) as a sharing data set, with its own
+  public/group checkboxes. It is off by default and can be shared independently
+  of Systems.
+
 ## 0.10.0 — 2026-11-09
 
 - Add a “Join all-vessels public network” toggle. Uncheck it to use Signal K P2P

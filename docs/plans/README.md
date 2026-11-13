@@ -43,7 +43,7 @@ of private groups.
 | Identity       | Persistent Ed25519 keypair per instance; groups keyed by identity, not by a shared secret.                                               |
 | Groups         | Arbitrary number; roles, signed roster, simple invite links, re-key and member removal.                                                  |
 | Injection      | Received vessels become real Signal K contexts; local data wins; no bridging between networks.                                           |
-| Shared data    | Per-data-set matrix in the webapp (Public + active groups); curated defaults (no `electrical.*`).                                        |
+| Shared data    | Per-data-set matrix in the webapp (Public + active groups); curated defaults (electrical off by default).                                |
 | Security       | One authorized writer per context; groups approve the member's MMSI; public uses a claim registry + attestors (MMSI ownership unproven). |
 
 ## Still open

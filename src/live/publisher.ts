@@ -333,7 +333,8 @@ function isValuePath(path: string): boolean {
     path.startsWith("steering.") ||
     path.startsWith("navigation.destination.") ||
     path.startsWith("navigation.anchor.") ||
-    path.startsWith("navigation.lights.")
+    path.startsWith("navigation.lights.") ||
+    path.startsWith("electrical.")
   );
 }
 

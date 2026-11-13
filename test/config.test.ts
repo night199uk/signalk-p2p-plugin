@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { defaultConfig, resolveConfig, schema } from "../src/config.js";
+import {
+  DATA_SETS,
+  defaultConfig,
+  resolveConfig,
+  schema,
+} from "../src/config.js";
 
 describe("config", () => {
   it("defaults to sharing identity, position, navigation and depth publicly", () => {
@@ -11,6 +16,8 @@ describe("config", () => {
     expect(config.sharing.depth.public).toBe(true);
     expect(config.sharing.tanksFuel.public).toBe(false);
     expect(config.sharing.propulsion.public).toBe(false);
+    expect(config.sharing.electrical.public).toBe(false);
+    expect(DATA_SETS.some((dataSet) => dataSet.id === "electrical")).toBe(true);
     expect(config.networks[0].id).toBe("all-vessels");
     expect(config.networks[0].enabled).toBe(true);
     expect(config.networks[0].consent).toBe("receive-only");

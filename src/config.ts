@@ -100,6 +100,13 @@ export const DATA_SETS = [
     publicDefault: false,
     groupsDefault: "none",
   },
+  {
+    id: "electrical",
+    title: "Electrical",
+    description: "Batteries, chargers, inverters, switches and power.",
+    publicDefault: false,
+    groupsDefault: "none",
+  },
 ] as const;
 
 export type DataSetId = (typeof DATA_SETS)[number]["id"];

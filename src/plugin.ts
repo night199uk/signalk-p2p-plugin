@@ -141,6 +141,7 @@ const VALUE_PATHS: string[] = [
   "navigation.destination.*",
   "navigation.anchor.*",
   "navigation.lights.*",
+  "electrical.*",
   "sensors.ais.class",
 ];
 
@@ -444,6 +445,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
     if (path.startsWith("propulsion.") || path.startsWith("engine.")) {
       return "propulsion";
     }
+    if (path.startsWith("electrical.")) return "electrical";
     if (path === "sensors.ais.class") return "identity";
     if (
       path.startsWith("steering.") ||
